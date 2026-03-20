@@ -237,14 +237,13 @@ The status line automatically shows contextual information:
 
 ## Styling
 
-Override CSS variables to match your theme:
+Override CSS variables for visual customization. Behavioral settings like indentation are controlled via [props](#props).
 
 ```css
 .sv-container {
   --sv-font-family: "JetBrains Mono", monospace;
   --sv-font-size: 14px;
   --sv-line-height: 1.5;
-  --sv-tab-size: 4;
   --sv-cursor-color: rgba(255, 255, 255, 0.6);
   --sv-selection-bg: rgba(100, 150, 255, 0.3);
   --sv-gutter-color: #858585;
@@ -253,6 +252,8 @@ Override CSS variables to match your theme:
   --sv-focus-color: #007acc;
 }
 ```
+
+> Tab display width is controlled by the `indentWidth` prop, not CSS.
 
 ## Hooks
 
