@@ -116,6 +116,10 @@ function executeExCommand(
       break;
 
     default: {
+      // Substitution: [range]s/old/new/[g]
+      const subResult = trySubstitute(cmd.trim(), ctx, buffer);
+      if (subResult) return subResult;
+
       // If numeric, jump to that line
       const lineNum = Number.parseInt(cmd.trim(), 10);
       if (!Number.isNaN(lineNum)) {
@@ -207,6 +211,123 @@ function executeSearch(
       { type: "status-message", message: `Pattern not found: ${pattern}` },
     ],
   };
+}
+
+/**
+ * Try to parse and execute a substitute command.
+ * Formats:
+ *   s/old/new/[g]       - current line
+ *   %s/old/new/[g]      - all lines
+ *   N,Ms/old/new/[g]    - line range (1-based)
+ *   .,$s/old/new/[g]    - current line to end
+ */
+function trySubstitute(
+  cmd: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult | null {
+  // Parse: optional range + s + delimiter + pattern + delimiter + replacement + delimiter + flags
+  const match = cmd.match(
+    /^(%|(\d+|\.)?,?(\d+|\$)?)?s(.)(.+?)\4(.*?)\4([gi]*)$/,
+  );
+  if (!match) return null;
+
+  const [, rangeStr, rangeStart, rangeEnd, , pattern, replacement, flags] = match;
+  const globalFlag = flags.includes("g");
+  const caseInsensitive = flags.includes("i");
+
+  // Resolve line range
+  let startLine: number;
+  let endLine: number;
+
+  if (rangeStr === "%") {
+    startLine = 0;
+    endLine = buffer.getLineCount() - 1;
+  } else if (rangeStart !== undefined || rangeEnd !== undefined) {
+    startLine = resolveLineRef(rangeStart, ctx.cursor.line, buffer);
+    endLine = rangeEnd !== undefined
+      ? resolveLineRef(rangeEnd, ctx.cursor.line, buffer)
+      : startLine;
+  } else {
+    // No range: current line only
+    startLine = ctx.cursor.line;
+    endLine = ctx.cursor.line;
+  }
+
+  startLine = Math.max(0, Math.min(startLine, buffer.getLineCount() - 1));
+  endLine = Math.max(startLine, Math.min(endLine, buffer.getLineCount() - 1));
+
+  // Build regex
+  let regex: RegExp;
+  try {
+    const regexFlags = (globalFlag ? "g" : "") + (caseInsensitive ? "i" : "");
+    regex = new RegExp(pattern, regexFlags);
+  } catch {
+    return {
+      newCtx: {
+        ...ctx,
+        mode: "normal",
+        commandBuffer: "",
+        commandType: null,
+        statusMessage: `Invalid pattern: ${pattern}`,
+      },
+      actions: [{ type: "mode-change", mode: "normal" }],
+    };
+  }
+
+  // Execute substitution
+  buffer.saveUndoPoint(ctx.cursor);
+  let totalReplacements = 0;
+  let linesChanged = 0;
+
+  for (let l = startLine; l <= endLine; l++) {
+    const original = buffer.getLine(l);
+    const replaced = original.replace(regex, replacement);
+    if (replaced !== original) {
+      buffer.setLine(l, replaced);
+      linesChanged++;
+      // Count individual replacements
+      if (globalFlag) {
+        const matches = original.match(new RegExp(pattern, "g" + (caseInsensitive ? "i" : "")));
+        totalReplacements += matches ? matches.length : 0;
+      } else {
+        totalReplacements++;
+      }
+    }
+  }
+
+  const statusMessage = totalReplacements > 0
+    ? `${totalReplacements} substitution${totalReplacements > 1 ? "s" : ""} on ${linesChanged} line${linesChanged > 1 ? "s" : ""}`
+    : "Pattern not found: " + pattern;
+
+  return {
+    newCtx: {
+      ...ctx,
+      mode: "normal",
+      commandBuffer: "",
+      commandType: null,
+      statusMessage,
+    },
+    actions: [
+      { type: "mode-change", mode: "normal" },
+      ...(totalReplacements > 0
+        ? [{ type: "content-change" as const, content: buffer.getContent() }]
+        : []),
+    ],
+  };
+}
+
+/**
+ * Resolve a line reference (number, '.', '$') to a 0-based line index.
+ */
+function resolveLineRef(
+  ref: string | undefined,
+  currentLine: number,
+  buffer: TextBuffer,
+): number {
+  if (!ref || ref === ".") return currentLine;
+  if (ref === "$") return buffer.getLineCount() - 1;
+  return Math.max(0, Number.parseInt(ref, 10) - 1);
 }
 
 /**
