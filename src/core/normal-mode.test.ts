@@ -950,6 +950,98 @@ describe("Normal mode", () => {
   });
 
   // ---------------------------------------------------
+  // . (dot repeat)
+  // ---------------------------------------------------
+  describe(". command (dot repeat)", () => {
+    it("repeats dd", () => {
+      const buffer = new TextBuffer("line1\nline2\nline3\nline4");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterDd } = pressKeys(["d", "d"], ctx, buffer);
+      expect(buffer.getContent()).toBe("line2\nline3\nline4");
+      const { ctx: afterDot } = pressKeys(["."], afterDd, buffer);
+      expect(buffer.getContent()).toBe("line3\nline4");
+      expect(afterDot.mode).toBe("normal");
+    });
+
+    it("repeats x", () => {
+      const buffer = new TextBuffer("abcdef");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterX } = pressKeys(["x"], ctx, buffer);
+      expect(buffer.getContent()).toBe("bcdef");
+      const { ctx: afterDot } = pressKeys(["."], afterX, buffer);
+      expect(buffer.getContent()).toBe("cdef");
+    });
+
+    it("repeats ciw + typed text", () => {
+      const buffer = new TextBuffer("foo bar baz");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      // ciw replaces 'foo' with 'hello'
+      const { ctx: afterChange } = pressKeys(
+        ["c", "i", "w", "h", "e", "l", "l", "o", "Escape"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("hello bar baz");
+      // Move to 'bar' and repeat
+      const { ctx: onBar } = pressKeys(["w"], afterChange, buffer);
+      const { ctx: afterDot } = pressKeys(["."], onBar, buffer);
+      expect(buffer.getContent()).toBe("hello hello baz");
+      expect(afterDot.mode).toBe("normal");
+    });
+
+    it("repeats dw", () => {
+      const buffer = new TextBuffer("one two three four");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterDw } = pressKeys(["d", "w"], ctx, buffer);
+      expect(buffer.getContent()).toBe("two three four");
+      const { ctx: afterDot } = pressKeys(["."], afterDw, buffer);
+      expect(buffer.getContent()).toBe("three four");
+    });
+
+    it("repeats r{char}", () => {
+      const buffer = new TextBuffer("aaa");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterR } = pressKeys(["r", "x"], ctx, buffer);
+      expect(buffer.getContent()).toBe("xaa");
+      const { ctx: afterMove } = pressKeys(["l"], afterR, buffer);
+      pressKeys(["."], afterMove, buffer);
+      expect(buffer.getContent()).toBe("xxa");
+    });
+
+    it("repeats ~ (toggle case)", () => {
+      const buffer = new TextBuffer("abcdef");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterTilde } = pressKeys(["~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("Abcdef");
+      pressKeys(["."], afterTilde, buffer);
+      expect(buffer.getContent()).toBe("ABcdef");
+    });
+
+    it("repeats insert session (ihi<Esc>)", () => {
+      const buffer = new TextBuffer("ab");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterInsert } = pressKeys(
+        ["i", "X", "Escape"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("Xab");
+      // Move right and repeat -> inserts X before cursor
+      const { ctx: moved } = pressKeys(["l", "l"], afterInsert, buffer);
+      expect(moved.cursor.col).toBe(2);
+      pressKeys(["."], moved, buffer);
+      expect(buffer.getContent()).toBe("XaXb");
+    });
+
+    it("does nothing when no previous change", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["."], ctx, buffer);
+      expect(buffer.getContent()).toBe("hello");
+    });
+  });
+
+  // ---------------------------------------------------
   // Reset on unmatched key
   // ---------------------------------------------------
   describe("Unknown key", () => {

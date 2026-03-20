@@ -62,6 +62,10 @@ export interface VimContext {
   statusMessage: string;
   indentStyle: "space" | "tab";
   indentWidth: number;
+  /** Key sequence of the last completed change (for . repeat) */
+  lastChange: string[];
+  /** Keys being accumulated for the current in-progress change */
+  pendingChange: string[];
   /** Pending visual-block insert info (for I/A in visual-block mode) */
   blockInsert: {
     startLine: number;

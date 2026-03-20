@@ -86,6 +86,7 @@ export function processNormalMode(
       "u",                              // undo
       "r",                              // replace char
       ":",                              // ex commands
+      ".",                              // dot repeat
     ]);
     if (mutatingKeys.has(key)) {
       return { newCtx: resetContext(ctx), actions: [] };
