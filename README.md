@@ -1,38 +1,58 @@
 # shiki-vim
 
-A vim-like lightweight code editor React component powered by [Shiki](https://shiki.style/).
+[![npm version](https://img.shields.io/npm/v/shiki-vim)](https://www.npmjs.com/package/shiki-vim)
+[![license](https://img.shields.io/npm/l/shiki-vim)](./LICENSE)
 
-No file tree, no tabs — just a single file editor with syntax highlighting and vim keybindings.
+Vim keybindings for your React app. A lightweight code editor component with [Shiki](https://shiki.style/) syntax highlighting.
+
+## Why shiki-vim?
+
+- **Shiki-powered highlighting** — Same engine as VS Code. Any Shiki theme and language works out of the box.
+- **Vim keybindings** — Motions, operators, visual mode, search, and more. Designed to feel natural to vim users.
+- **Just a React component** — Drop it in with `<ShikiVim />`. No wrapper, no adapter, no framework lock-in.
+- **Callback-driven** — `onSave`, `onYank`, `onChange` — you decide what happens. Clipboard, server sync, whatever you want.
+- **Customizable** — CSS variables for theming. Shiki options are passed through transparently.
 
 ## Install
 
 ```bash
-bun add shiki-vim shiki react react-dom
+npm install shiki-vim shiki react react-dom
 ```
 
 `shiki`, `react`, and `react-dom` are peer dependencies.
 
-## Usage
+## Quick Start
 
 ```tsx
 import ShikiVim from "shiki-vim";
 import "shiki-vim/styles.css";
 import { createHighlighter } from "shiki";
 
+// Create a highlighter (do this once, outside your component)
 const highlighter = await createHighlighter({
   themes: ["vitesse-dark"],
   langs: ["typescript"],
 });
 
-function Editor() {
+function App() {
   return (
     <ShikiVim
-      content={`const hello = "world";`}
+      content={`function greet(name: string) {\n  return "Hello, " + name;\n}`}
       highlighter={highlighter}
       lang="typescript"
       theme="vitesse-dark"
-      onSave={(content) => console.log("saved:", content)}
-      onYank={(text) => navigator.clipboard.writeText(text)}
+      onSave={(content) => {
+        // :w triggers this
+        fetch("/api/save", { method: "POST", body: content });
+      }}
+      onYank={(text) => {
+        // yy, dw, etc. trigger this
+        navigator.clipboard.writeText(text);
+      }}
+      onChange={(content) => {
+        // Every edit triggers this
+        console.log("content changed:", content.length, "chars");
+      }}
     />
   );
 }
@@ -42,116 +62,85 @@ function Editor() {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `content` | `string` | required | The content to display and edit |
-| `highlighter` | `HighlighterCore` | required | Shiki highlighter instance |
-| `lang` | `string` | required | Language for syntax highlighting |
-| `theme` | `string` | required | Theme for syntax highlighting |
-| `shikiOptions` | `Record<string, unknown>` | `undefined` | Additional options passed to `codeToTokens` |
-| `cursorPosition` | `string` | `"1:1"` | Initial cursor position (1-based, `"line:col"`) |
-| `onChange` | `(content: string) => void` | `undefined` | Called when content changes |
-| `onYank` | `(text: string) => void` | `undefined` | Called when text is yanked |
-| `onSave` | `(content: string) => void` | `undefined` | Called on `:w` command |
-| `onModeChange` | `(mode: VimMode) => void` | `undefined` | Called when vim mode changes |
-| `className` | `string` | `undefined` | Additional class name for the container |
-| `readOnly` | `boolean` | `false` | Whether the editor is read-only |
-| `showLineNumbers` | `boolean` | `true` | Whether to show line numbers |
+| `content` | `string` | *required* | The content to display and edit |
+| `highlighter` | `HighlighterCore` | *required* | Shiki highlighter instance |
+| `lang` | `string` | *required* | Language for syntax highlighting |
+| `theme` | `string` | *required* | Theme for syntax highlighting |
+| `shikiOptions` | `Record<string, unknown>` | — | Additional options passed directly to Shiki's `codeToTokens` |
+| `cursorPosition` | `string` | `"1:1"` | Initial cursor position (`"line:col"`, 1-based) |
+| `onChange` | `(content: string) => void` | — | Called on every content change |
+| `onYank` | `(text: string) => void` | — | Called when text is yanked (`yy`, `dw`, etc.) |
+| `onSave` | `(content: string) => void` | — | Called on `:w` |
+| `onModeChange` | `(mode: VimMode) => void` | — | Called when vim mode changes |
+| `className` | `string` | — | Additional class name for the container |
+| `readOnly` | `boolean` | `false` | Disable editing (motions still work) |
+| `showLineNumbers` | `boolean` | `true` | Show line numbers |
 
-## Vim Keybindings
+## Keybindings
 
-### Supported (v0.1.0)
-
-#### Modes
+### Modes
 
 | Key | Action |
 |-----|--------|
-| `i` | Insert before cursor |
-| `a` | Insert after cursor |
-| `I` | Insert at first non-blank |
-| `A` | Insert at end of line |
-| `o` | Open line below |
-| `O` | Open line above |
+| `i` `a` `I` `A` | Enter insert mode |
+| `o` `O` | Open line below / above |
 | `v` | Visual mode (character) |
 | `V` | Visual line mode |
 | `Escape` | Return to normal mode |
 
-#### Motions
+### Motions
 
 | Key | Action |
 |-----|--------|
-| `h` `j` `k` `l` | Basic movement |
-| `w` `e` `b` | Word movement |
-| `0` | Line start |
-| `^` | First non-blank |
-| `$` | Line end |
-| `gg` | File start (or `{count}gg` for line) |
-| `G` | File end (or `{count}G` for line) |
-| `f{char}` | Find char forward |
-| `F{char}` | Find char backward |
-| `t{char}` | Till char forward |
-| `T{char}` | Till char backward |
-| `%` | Match bracket |
+| `h` `j` `k` `l` | Left / Down / Up / Right |
+| `w` `e` `b` | Next word / End of word / Previous word |
+| `0` `^` `$` | Line start / First non-blank / Line end |
+| `gg` `G` | File start / File end (or `{count}gg`, `{count}G`) |
+| `f{char}` `F{char}` | Find char forward / backward |
+| `t{char}` `T{char}` | Till char forward / backward |
+| `%` | Jump to matching bracket |
+| `{count}{motion}` | Repeat motion (e.g. `5j`, `3w`) |
 
-#### Operators
+### Operators
 
 | Key | Action |
 |-----|--------|
 | `d{motion}` | Delete |
 | `y{motion}` | Yank |
-| `c{motion}` | Change |
-| `dd` `yy` `cc` | Line-wise operator |
-| `{count}{operator}{motion}` | With count |
+| `c{motion}` | Change (delete + enter insert) |
+| `dd` `yy` `cc` | Operate on whole line |
+| `{count}{operator}{motion}` | e.g. `3dw`, `2yy` |
 
-#### Editing
+### Editing
 
 | Key | Action |
 |-----|--------|
 | `x` | Delete char under cursor |
-| `r{char}` | Replace char |
-| `p` | Paste after |
-| `P` | Paste before |
-| `J` | Join lines |
+| `r{char}` | Replace char under cursor |
+| `p` / `P` | Paste after / before cursor |
+| `J` | Join current line with next |
 | `u` | Undo |
 | `Ctrl-R` | Redo |
 
-#### Search
+### Search
 
 | Key | Action |
 |-----|--------|
-| `/{pattern}` | Search forward |
-| `?{pattern}` | Search backward |
-| `n` | Next match |
-| `N` | Previous match |
+| `/{pattern}` | Search forward (regex) |
+| `?{pattern}` | Search backward (regex) |
+| `n` / `N` | Next / Previous match |
 
-#### Scroll
+### Scroll & Commands
 
 | Key | Action |
 |-----|--------|
-| `Ctrl-U` | Half page up |
-| `Ctrl-D` | Half page down |
-
-#### Ex Commands
-
-| Command | Action |
-|---------|--------|
-| `:w` | Save (calls `onSave`) |
+| `Ctrl-U` / `Ctrl-D` | Half page up / down |
+| `:w` | Save |
 | `:{number}` | Go to line |
-
-### Planned
-
-- [ ] Text objects (`iw`, `i"`, `i(`, etc.)
-- [ ] Visual block mode (`Ctrl-V`)
-- [ ] `.` (repeat last change)
-- [ ] `~` (toggle case)
-- [ ] `>>` / `<<` (indent/dedent)
-- [ ] `:s/old/new/` (substitute)
-- [ ] `:q`, `:wq`
-- [ ] Registers (`"a`, `"b`, etc.)
-- [ ] Macros (`q{reg}`, `@{reg}`)
-- [ ] Marks (`m{a-z}`, `'{a-z}`)
 
 ## Styling
 
-The component uses CSS variables for theming. Override them in your CSS:
+Override CSS variables to match your theme:
 
 ```css
 .sv-container {
@@ -167,49 +156,47 @@ The component uses CSS variables for theming. Override them in your CSS:
 }
 ```
 
-## Architecture
+## Hooks
 
-```
-src/
-├── index.ts              # Exports
-├── types.ts              # TypeScript types
-├── ShikiVim.tsx           # Main component
-├── styles.css            # CSS styles
-├── core/
-│   ├── buffer.ts         # Text buffer with undo/redo
-│   ├── motions.ts        # Motion implementations
-│   ├── operators.ts      # Operator execution (d, y, c)
-│   ├── vim-state.ts      # State machine dispatcher
-│   ├── normal-mode.ts    # Normal mode handler
-│   ├── insert-mode.ts    # Insert mode handler
-│   ├── visual-mode.ts    # Visual mode handler
-│   ├── command-line-mode.ts # Command line handler
-│   ├── search.ts         # Buffer search
-│   ├── motion-resolver.ts # Key → motion mapping
-│   ├── char-pending.ts   # f/F/t/T/r handler
-│   ├── ctrl-keys.ts      # Ctrl key combos
-│   └── key-utils.ts      # Key classification utils
-├── hooks/
-│   ├── useShikiTokens.ts # Shiki tokenization
-│   └── useVimEngine.ts   # Main engine hook
-└── components/
-    ├── Line.tsx           # Line renderer
-    ├── Cursor.tsx         # Cursor overlay
-    └── StatusLine.tsx     # Status bar
+For advanced use cases, the internal hooks are exported:
+
+```tsx
+import { useVimEngine, useShikiTokens } from "shiki-vim";
+
+// Build your own editor UI with the vim engine
+const engine = useVimEngine({
+  content: "hello world",
+  onSave: (content) => { /* ... */ },
+});
+
+// engine.cursor, engine.mode, engine.handleKeyDown, etc.
 ```
 
-## Development
+## Roadmap
+
+Contributions welcome for any of these:
+
+- [ ] Text objects (`iw`, `i"`, `i(`, `a{`, etc.)
+- [ ] Visual block mode (`Ctrl-V`)
+- [ ] `.` repeat last change
+- [ ] `~` toggle case
+- [ ] `>>` / `<<` indent / dedent
+- [ ] `:s/old/new/g` substitute
+- [ ] Named registers (`"a`, `"0`, etc.)
+- [ ] Macros (`q{reg}`, `@{reg}`)
+- [ ] Marks (`m{a-z}`, `'{a-z}`)
+
+## Contributing
 
 ```bash
 bun install
-bun run build       # Build
 bun run dev         # Watch mode
+bun run test        # Run tests (345 cases)
 bun run typecheck   # Type check
-bun run test        # Run tests
-bun run lint        # Lint with oxlint
-bun run fmt         # Format with oxfmt
+bun run lint        # oxlint
+bun run fmt         # oxfmt
 ```
 
 ## License
 
-MIT
+[MIT](./LICENSE)
