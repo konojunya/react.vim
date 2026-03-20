@@ -347,4 +347,108 @@ describe("Command-line mode", () => {
       expect(result.cursor).toEqual({ line: 4, col: 0 });
     });
   });
+
+  // ---------------------------------------------------
+  // :s substitute
+  // ---------------------------------------------------
+  describe(":s substitute", () => {
+    it(":s/old/new/ replaces first match on current line", () => {
+      const buffer = new TextBuffer("foo bar foo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(
+        [...":", ..."s/foo/baz/", "Enter"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("baz bar foo");
+      expect(result.mode).toBe("normal");
+      expect(result.statusMessage).toContain("1 substitution");
+    });
+
+    it(":s/old/new/g replaces all matches on current line", () => {
+      const buffer = new TextBuffer("foo bar foo baz foo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."s/foo/x/g", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("x bar x baz x");
+    });
+
+    it(":%s/old/new/g replaces all matches in entire file", () => {
+      const buffer = new TextBuffer("foo\nbar\nfoo\nbaz");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(
+        [...":", ..."%s/foo/replaced/g", "Enter"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("replaced\nbar\nreplaced\nbaz");
+      expect(result.statusMessage).toContain("2 substitutions on 2 lines");
+    });
+
+    it(":1,3s/x/y/g replaces in line range", () => {
+      const buffer = new TextBuffer("x\nx\nx\nx");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."1,3s/x/y/g", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("y\ny\ny\nx");
+    });
+
+    it(":.,$s/a/b/g replaces from current line to end", () => {
+      const buffer = new TextBuffer("aaa\naaa\naaa\naaa");
+      const ctx = createInitialContext({ line: 1, col: 0 });
+      pressKeys([...":", ...".,", "$", ..."s/a/b/g", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("aaa\nbbb\nbbb\nbbb");
+    });
+
+    it(":s with no match shows error", () => {
+      const buffer = new TextBuffer("hello world");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(
+        [...":", ..."s/xyz/abc/", "Enter"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("hello world");
+      expect(result.statusMessage).toContain("Pattern not found");
+    });
+
+    it(":s can be undone", () => {
+      const buffer = new TextBuffer("foo bar");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      const { ctx: afterSub } = pressKeys(
+        [...":", ..."s/foo/baz/", "Enter"],
+        ctx,
+        buffer,
+      );
+      expect(buffer.getContent()).toBe("baz bar");
+      pressKeys(["u"], afterSub, buffer);
+      expect(buffer.getContent()).toBe("foo bar");
+    });
+
+    it(":s/old/new/i does case-insensitive match", () => {
+      const buffer = new TextBuffer("Hello hello HELLO");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."s/hello/x/gi", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("x x x");
+    });
+
+    it(":%s with alternate delimiter works", () => {
+      const buffer = new TextBuffer("/usr/bin/sh");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."%s#/usr/bin#/usr/local/bin#g", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("/usr/local/bin/sh");
+    });
+
+    it(":s/old/new works without trailing delimiter", () => {
+      const buffer = new TextBuffer("foo bar foo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."s/foo/baz", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("baz bar foo");
+    });
+
+    it(":%s/old/new works without trailing delimiter", () => {
+      const buffer = new TextBuffer("foo\nfoo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."%s/foo/bar", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("bar\nbar");
+    });
+  });
 });

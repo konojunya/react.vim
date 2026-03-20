@@ -26,12 +26,18 @@ export type CommandPhase =
   | "idle"
   | "operator-pending"
   | "char-pending"
-  | "g-pending";
+  | "g-pending"
+  | "text-object-pending"
+  | "register-pending"
+  | "macro-register-pending"
+  | "macro-execute-pending"
+  | "mark-pending"
+  | "jump-mark-pending";
 
 /**
  * Vim operators
  */
-export type Operator = "d" | "y" | "c";
+export type Operator = "d" | "y" | "c" | ">" | "<";
 
 /**
  * Character-awaiting commands
@@ -48,15 +54,47 @@ export interface VimContext {
   operator: Operator | null;
   cursor: CursorPosition;
   visualAnchor: CursorPosition | null;
+  /** Unnamed register (default yank/delete destination) */
   register: string;
+  /** Named registers (a-z) */
+  registers: Record<string, string>;
+  /** Currently selected register via " prefix (null = unnamed) */
+  selectedRegister: string | null;
   commandBuffer: string;
   commandType: ":" | "/" | "?" | null;
   lastSearch: string;
   searchDirection: "forward" | "backward";
   charCommand: CharCommand | null;
+  /** Last f/F/t/T command and character for ; and , repeat */
+  lastCharSearch: { command: "f" | "F" | "t" | "T"; char: string } | null;
+  /** Text object modifier: "i" (inner) or "a" (around) */
+  textObjectModifier: "i" | "a" | null;
   statusMessage: string;
   indentStyle: "space" | "tab";
   indentWidth: number;
+  /** Key sequence of the last completed change (for . repeat) */
+  lastChange: string[];
+  /** Keys being accumulated for the current in-progress change */
+  pendingChange: string[];
+  /** Pending visual-block insert info (for I/A in visual-block mode) */
+  blockInsert: {
+    startLine: number;
+    endLine: number;
+    col: number;
+    cursorAtInsertStart: CursorPosition;
+  } | null;
+  /** Marks (a-z) -> cursor positions */
+  marks: Record<string, CursorPosition>;
+  /** Register currently being recorded into (null = not recording) */
+  macroRecording: string | null;
+  /** Recorded macro key sequences */
+  macros: Record<string, string[]>;
+  /** Last executed macro register name (for @@) */
+  lastMacro: string | null;
+  /** First visible line in the viewport (0-based) */
+  viewportTopLine: number;
+  /** Number of visible lines in the viewport */
+  viewportHeight: number;
 }
 
 /**

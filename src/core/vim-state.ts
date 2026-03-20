@@ -18,6 +18,13 @@ import { processInsertMode } from "./insert-mode";
 import { processVisualMode } from "./visual-mode";
 import { processCommandLineMode } from "./command-line-mode";
 
+/** Modifier-only keys that should be ignored */
+const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta"]);
+
+function isModifierKey(key: string): boolean {
+  return MODIFIER_KEYS.has(key);
+}
+
 /** Return value of processKeystroke */
 export interface KeystrokeResult {
   newCtx: VimContext;
@@ -40,14 +47,27 @@ export function createInitialContext(
     cursor,
     visualAnchor: null,
     register: "",
+    registers: {},
+    selectedRegister: null,
     commandBuffer: "",
     commandType: null,
     lastSearch: "",
     searchDirection: "forward",
     charCommand: null,
+    lastCharSearch: null,
+    textObjectModifier: null,
+    lastChange: [],
+    pendingChange: [],
+    marks: {},
+    macroRecording: null,
+    macros: {},
+    lastMacro: null,
+    blockInsert: null,
     statusMessage: "",
     indentStyle: opts?.indentStyle ?? "space",
     indentWidth: opts?.indentWidth ?? 2,
+    viewportTopLine: 0,
+    viewportHeight: 50,
   };
 }
 
@@ -81,6 +101,60 @@ export function processKeystroke(
   ctrlKey: boolean = false,
   readOnly: boolean = false,
 ): KeystrokeResult {
+  // Ignore modifier-only keys (Shift, Control, Alt, Meta).
+  // These fire as separate keydown events and must not reset state (e.g. count).
+  if (isModifierKey(key)) {
+    return { newCtx: ctx, actions: [] };
+  }
+
+  // --- Macro: stop recording with q in normal mode ---
+  if (ctx.macroRecording && key === "q" && ctx.mode === "normal" && ctx.phase === "idle") {
+    return stopMacroRecording(ctx);
+  }
+
+  // --- Macro: start recording with q{a-z} ---
+  if (key === "q" && ctx.mode === "normal" && ctx.phase === "idle" && !ctx.macroRecording) {
+    return {
+      newCtx: { ...ctx, phase: "macro-register-pending" },
+      actions: [],
+    };
+  }
+  if (ctx.phase === "macro-register-pending") {
+    return startMacroRecording(key, ctx);
+  }
+
+  // --- Macro: execute with @{a-z} or @@ ---
+  if (key === "@" && ctx.mode === "normal" && ctx.phase === "idle" && !ctx.macroRecording) {
+    return {
+      newCtx: { ...ctx, phase: "macro-execute-pending" },
+      actions: [],
+    };
+  }
+  if (ctx.phase === "macro-execute-pending") {
+    return executeMacro(key, ctx, buffer, readOnly);
+  }
+
+  // --- Dot repeat: replay the last change ---
+  if (key === "." && ctx.mode === "normal" && ctx.phase === "idle" && ctx.lastChange.length > 0) {
+    const result = replayLastChange(ctx, buffer, readOnly);
+    return maybeCaptureKey(key, ctx, result);
+  }
+
+  const result = processKeystrokeInner(key, ctx, buffer, ctrlKey, readOnly);
+  const tracked = trackChange(key, ctx, result);
+  return maybeCaptureKey(key, ctx, tracked);
+}
+
+/**
+ * Inner keystroke dispatcher (without change tracking).
+ */
+function processKeystrokeInner(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+  ctrlKey: boolean,
+  readOnly: boolean,
+): KeystrokeResult {
   switch (ctx.mode) {
     case "normal":
       return processNormalMode(key, ctx, buffer, ctrlKey, readOnly);
@@ -102,10 +176,292 @@ export function processKeystroke(
       return processInsertMode(key, ctx, buffer, ctrlKey);
     case "visual":
     case "visual-line":
+    case "visual-block":
       return processVisualMode(key, ctx, buffer, ctrlKey, readOnly);
     case "command-line":
       return processCommandLineMode(key, ctx, buffer);
     default:
       return { newCtx: ctx, actions: [] };
   }
+}
+
+/**
+ * Track change key sequences for dot-repeat.
+ *
+ * A "change" starts when:
+ * - An operator is started (d, c) or a mutating command is pressed (x, ~, etc.)
+ * - Insert mode is entered
+ *
+ * A "change" ends when:
+ * - We return to normal mode idle after a buffer mutation
+ *
+ * During a change, all keys are accumulated in pendingChange.
+ * When complete, pendingChange is saved to lastChange.
+ */
+function trackChange(
+  key: string,
+  prevCtx: VimContext,
+  result: KeystrokeResult,
+): KeystrokeResult {
+  const newCtx = result.newCtx;
+  const hasContentChange = result.actions.some(
+    (a) => a.type === "content-change",
+  );
+
+  const wasInChange = prevCtx.pendingChange.length > 0;
+  const prevWasNormal = prevCtx.mode === "normal";
+  const nowNormalIdle = newCtx.mode === "normal" && newCtx.phase === "idle";
+  const enteredInsert =
+    newCtx.mode === "insert" && prevCtx.mode !== "insert";
+  const enteredOperatorPending =
+    newCtx.phase === "operator-pending" && prevCtx.phase === "idle";
+  const enteredCharPending =
+    newCtx.phase === "char-pending" && prevCtx.phase !== "char-pending";
+  const enteredTextObjectPending =
+    newCtx.phase === "text-object-pending" &&
+    prevCtx.phase !== "text-object-pending";
+
+  // In insert mode, keep accumulating
+  if (prevCtx.mode === "insert" && newCtx.mode === "insert") {
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        pendingChange: [...newCtx.pendingChange, key],
+      },
+    };
+  }
+
+  // Returning from insert to normal -> change complete
+  if (prevCtx.mode === "insert" && nowNormalIdle) {
+    const change = [...prevCtx.pendingChange, key];
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        lastChange: change,
+        pendingChange: [],
+      },
+    };
+  }
+
+  // Starting a change from normal: operator, char-pending, or entering insert
+  if (prevWasNormal && (enteredOperatorPending || enteredCharPending || enteredInsert)) {
+    // If already accumulating (e.g., ciw enters insert from operator-pending),
+    // keep the existing pendingChange
+    const pending = wasInChange
+      ? [...prevCtx.pendingChange, key]
+      : [key];
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        pendingChange: pending,
+      },
+    };
+  }
+
+  // Accumulating in operator-pending / char-pending / text-object-pending
+  if (wasInChange && !nowNormalIdle) {
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        pendingChange: [...prevCtx.pendingChange, key],
+      },
+    };
+  }
+
+  // Change completed in one step from pending state back to normal
+  if (wasInChange && nowNormalIdle) {
+    const change = [...prevCtx.pendingChange, key];
+    // Only save if there was an actual content change
+    if (hasContentChange) {
+      return {
+        ...result,
+        newCtx: {
+          ...newCtx,
+          lastChange: change,
+          pendingChange: [],
+        },
+      };
+    }
+    // No content change (e.g., yy) -> discard pending
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        pendingChange: [],
+      },
+    };
+  }
+
+  // Immediate single-key change (x, ~, J, p, P, D)
+  if (prevWasNormal && nowNormalIdle && hasContentChange) {
+    // Include any count keys that were accumulated
+    const countKeys = prevCtx.count > 0 ? String(prevCtx.count).split("") : [];
+    return {
+      ...result,
+      newCtx: {
+        ...newCtx,
+        lastChange: [...countKeys, key],
+        pendingChange: [],
+      },
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Replay the last change key sequence.
+ */
+function replayLastChange(
+  ctx: VimContext,
+  buffer: TextBuffer,
+  readOnly: boolean,
+): KeystrokeResult {
+  let current = { ...ctx, pendingChange: [] as string[] };
+  const allActions: import("../types").VimAction[] = [];
+
+  for (const k of ctx.lastChange) {
+    const ctrlKey = false; // TODO: handle Ctrl in replay if needed
+    const inner = processKeystrokeInner(k, current, buffer, ctrlKey, readOnly);
+    current = inner.newCtx;
+    allActions.push(...inner.actions);
+  }
+
+  // Preserve lastChange (don't overwrite with the replay)
+  current.lastChange = ctx.lastChange;
+  current.pendingChange = [];
+
+  return {
+    newCtx: current,
+    actions: allActions,
+  };
+}
+
+// =====================
+// Macro recording & playback
+// =====================
+
+/**
+ * Capture the key into the macro recording buffer if recording.
+ */
+function maybeCaptureKey(
+  key: string,
+  prevCtx: VimContext,
+  result: KeystrokeResult,
+): KeystrokeResult {
+  if (!prevCtx.macroRecording) return result;
+
+  // Don't record the q that starts recording (it's already handled before this)
+  // Keys during recording are captured into macros[register]
+  const reg = prevCtx.macroRecording;
+  const existing = result.newCtx.macros[reg] ?? [];
+  const recordingStatus = `recording @${reg}`;
+  // Preserve "recording @x" in status line unless there's a more important message
+  const statusMessage = result.newCtx.statusMessage
+    && result.newCtx.statusMessage !== ""
+    && result.newCtx.statusMessage !== recordingStatus
+    ? result.newCtx.statusMessage
+    : recordingStatus;
+
+  return {
+    ...result,
+    newCtx: {
+      ...result.newCtx,
+      macros: {
+        ...result.newCtx.macros,
+        [reg]: [...existing, key],
+      },
+      macroRecording: reg,
+      statusMessage,
+    },
+  };
+}
+
+/**
+ * Start recording a macro into the given register.
+ */
+function startMacroRecording(
+  key: string,
+  ctx: VimContext,
+): KeystrokeResult {
+  if (/^[a-z]$/.test(key)) {
+    return {
+      newCtx: {
+        ...ctx,
+        phase: "idle",
+        macroRecording: key,
+        macros: { ...ctx.macros, [key]: [] },
+        statusMessage: `recording @${key}`,
+      },
+      actions: [],
+    };
+  }
+  // Invalid register -> cancel
+  return {
+    newCtx: { ...ctx, phase: "idle" },
+    actions: [],
+  };
+}
+
+/**
+ * Stop recording the current macro.
+ */
+function stopMacroRecording(ctx: VimContext): KeystrokeResult {
+  return {
+    newCtx: {
+      ...ctx,
+      macroRecording: null,
+      statusMessage: "",
+    },
+    actions: [],
+  };
+}
+
+/**
+ * Execute a macro from a register, or @@ to repeat the last macro.
+ */
+function executeMacro(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+  readOnly: boolean,
+): KeystrokeResult {
+  let reg: string | null = null;
+
+  if (key === "@" && ctx.lastMacro) {
+    reg = ctx.lastMacro;
+  } else if (/^[a-z]$/.test(key)) {
+    reg = key;
+  }
+
+  if (!reg || !ctx.macros[reg] || ctx.macros[reg].length === 0) {
+    return {
+      newCtx: { ...ctx, phase: "idle" },
+      actions: [],
+    };
+  }
+
+  const keys = ctx.macros[reg];
+  let current: VimContext = { ...ctx, phase: "idle", lastMacro: reg };
+  const allActions: import("../types").VimAction[] = [];
+
+  for (const k of keys) {
+    const inner = processKeystrokeInner(k, current, buffer, false, readOnly);
+    // Apply change tracking
+    const tracked = trackChange(k, current, inner);
+    current = tracked.newCtx;
+    allActions.push(...tracked.actions);
+  }
+
+  // Preserve macro state
+  current.lastMacro = reg;
+
+  return {
+    newCtx: current,
+    actions: allActions,
+  };
 }

@@ -30,7 +30,7 @@ export function isCountKey(key: string, ctx: VimContext): boolean {
  * d: delete, y: yank, c: change
  */
 export function isOperator(key: string): key is Operator {
-  return key === "d" || key === "y" || key === "c";
+  return key === "d" || key === "y" || key === "c" || key === ">" || key === "<";
 }
 
 /**
@@ -129,6 +129,8 @@ export function resetContext(ctx: VimContext): VimContext {
     count: 0,
     operator: null,
     charCommand: null,
+    textObjectModifier: null,
+    selectedRegister: null,
     statusMessage: "",
   };
 }

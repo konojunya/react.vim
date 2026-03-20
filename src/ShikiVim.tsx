@@ -6,8 +6,8 @@
  *
  * Usage:
  * ```tsx
- * import ShikiVim from 'shiki-vim'
- * import 'shiki-vim/styles.css'
+ * import ShikiVim from 'react.vim'
+ * import 'react.vim/styles.css'
  * import { createHighlighter } from 'shiki'
  *
  * const highlighter = await createHighlighter({
@@ -96,11 +96,13 @@ export default function ShikiVim({
   const totalLines = tokenLines.length;
   const gutterWidth = String(totalLines).length;
 
+  // --- Tab size for rendering and cursor calculation ---
+  const tabSize = indentWidth ?? 4;
+
   // --- Calculate visual column (accounting for tab width) ---
   const visualCol = useMemo(() => {
     const lines = engine.content.split("\n");
     const line = lines[engine.cursor.line] ?? "";
-    const tabSize = 4;
     let col = 0;
     for (let i = 0; i < engine.cursor.col && i < line.length; i++) {
       if (line[i] === "\t") {
@@ -110,7 +112,7 @@ export default function ShikiVim({
       }
     }
     return col;
-  }, [engine.content, engine.cursor.line, engine.cursor.col]);
+  }, [engine.content, engine.cursor.line, engine.cursor.col, tabSize]);
 
   // --- Calculate search match positions per line ---
   // Only highlights while actively typing a search (/ or ?).
@@ -166,28 +168,54 @@ export default function ShikiVim({
     }
   }, [engine.cursor.line]);
 
-  // --- Scroll handling (Ctrl-U/D) ---
+  // --- Scroll handling (Ctrl-B/F/U/D) ---
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       engine.handleKeyDown(e);
 
-      // Scroll handling for Ctrl-U/D
-      if (e.ctrlKey && (e.key === "u" || e.key === "d")) {
-        if (codeAreaRef.current) {
+      if (e.ctrlKey && codeAreaRef.current) {
+        const scrollKeys: Record<string, { direction: "up" | "down"; amount: number }> = {
+          b: { direction: "up", amount: 1.0 },
+          f: { direction: "down", amount: 1.0 },
+          u: { direction: "up", amount: 0.5 },
+          d: { direction: "down", amount: 0.5 },
+        };
+        const scroll = scrollKeys[e.key];
+        if (scroll) {
           const areaHeight = codeAreaRef.current.clientHeight;
           const lineHeight = parseFloat(
             getComputedStyle(codeAreaRef.current).lineHeight,
           );
           const visibleLines = Math.floor(areaHeight / lineHeight);
-          engine.handleScroll(
-            e.key === "u" ? "up" : "down",
-            visibleLines,
-          );
+          engine.handleScroll(scroll.direction, visibleLines, scroll.amount);
         }
       }
     },
     [engine],
   );
+
+  // --- Update viewport info for H/M/L motions ---
+  useEffect(() => {
+    const area = codeAreaRef.current;
+    if (!area) return;
+
+    const updateViewportInfo = () => {
+      const lineHeight = parseFloat(getComputedStyle(area).lineHeight);
+      if (!lineHeight) return;
+      const padding = 8;
+      const topLine = Math.floor((area.scrollTop - padding) / lineHeight);
+      const visibleLines = Math.floor(area.clientHeight / lineHeight);
+      engine.updateViewport(Math.max(0, topLine), visibleLines);
+    };
+
+    updateViewportInfo();
+    area.addEventListener("scroll", updateViewportInfo);
+    window.addEventListener("resize", updateViewportInfo);
+    return () => {
+      area.removeEventListener("scroll", updateViewportInfo);
+      window.removeEventListener("resize", updateViewportInfo);
+    };
+  }, [engine]);
 
   return (
     <div
@@ -196,7 +224,8 @@ export default function ShikiVim({
       style={{
         backgroundColor: bgColor,
         color: fgColor,
-      }}
+        "--sv-tab-size": String(tabSize),
+      } as React.CSSProperties}
       tabIndex={0}
       onKeyDown={handleKeyDown}
       role="textbox"
@@ -259,14 +288,14 @@ interface SelectionInfo {
  * visual:      Character-wise selection (from anchor to cursor)
  * visual-line: Line-wise selection (from anchor line to cursor line)
  */
-function computeSelectionInfo(
+export function computeSelectionInfo(
   mode: string,
   anchor: CursorPosition | null,
   cursor: CursorPosition,
   _totalLines: number,
 ): SelectionInfo {
   // No selection if not in visual mode
-  if ((mode !== "visual" && mode !== "visual-line") || !anchor) {
+  if ((mode !== "visual" && mode !== "visual-line" && mode !== "visual-block") || !anchor) {
     return {
       isLineSelected: () => false,
       getSelectionStartCol: () => undefined,
@@ -294,6 +323,20 @@ function computeSelectionInfo(
         lineIndex >= startLine && lineIndex <= endLine,
       getSelectionStartCol: () => undefined,
       getSelectionEndCol: () => undefined,
+    };
+  }
+
+  // visual-block (rectangular selection)
+  if (mode === "visual-block") {
+    const blockStartCol = Math.min(anchor.col, cursor.col);
+    const blockEndCol = Math.max(anchor.col, cursor.col) + 1;
+    return {
+      isLineSelected: (lineIndex) =>
+        lineIndex >= startLine && lineIndex <= endLine,
+      getSelectionStartCol: (lineIndex) =>
+        lineIndex >= startLine && lineIndex <= endLine ? blockStartCol : undefined,
+      getSelectionEndCol: (lineIndex) =>
+        lineIndex >= startLine && lineIndex <= endLine ? blockEndCol : undefined,
     };
   }
 

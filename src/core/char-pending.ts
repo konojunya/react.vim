@@ -53,6 +53,11 @@ export function handleCharPending(
     };
   }
 
+  const lastCharSearch = {
+    command: ctx.charCommand as "f" | "F" | "t" | "T",
+    char: key,
+  };
+
   // If in operator-pending state (e.g., df{char})
   if (ctx.operator) {
     buffer.saveUndoPoint(ctx.cursor);
@@ -61,6 +66,7 @@ export function handleCharPending(
       motion.range,
       buffer,
       ctx.cursor,
+      { style: ctx.indentStyle, width: ctx.indentWidth },
     );
 
     return {
@@ -69,8 +75,11 @@ export function handleCharPending(
         mode: result.newMode,
         cursor: result.newCursor,
         register: result.yankedText,
+        lastCharSearch,
         statusMessage:
-          result.newMode === "insert" ? "-- INSERT --" : "",
+          result.newMode === "insert"
+            ? "-- INSERT --"
+            : result.statusMessage || "",
       },
       actions: [
         ...result.actions,
@@ -87,6 +96,7 @@ export function handleCharPending(
     newCtx: {
       ...resetContext(ctx),
       cursor: motion.cursor,
+      lastCharSearch,
     },
     actions: [{ type: "cursor-move", position: motion.cursor }],
   };

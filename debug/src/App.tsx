@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import { createHighlighter, bundledLanguages, bundledThemes, type Highlighter } from "shiki";
-import ShikiVim, { type VimAction } from "shiki-vim";
-import "shiki-vim/styles.css";
+import ShikiVim, { type VimAction } from "react.vim";
+import "react.vim/styles.css";
 
 const themes = Object.keys(bundledThemes);
 const langs = Object.keys(bundledLanguages);
+const tabLanguages = new Set(["go", "makefile", "zig"]);
 
 const initialCode = `package main
 
@@ -285,7 +286,7 @@ func main() {
 }
 `;
 
-// CSS variables exposed by shiki-vim
+// CSS variables exposed by react.vim
 type VarType = "text" | "color";
 
 interface ColorState {
@@ -326,6 +327,8 @@ export default function App() {
   const [highlighter, setHighlighter] = useState<Highlighter | null>(null);
   const [theme, setTheme] = useState("vitesse-dark");
   const [lang, setLang] = useState("go");
+  const [indentStyle, setIndentStyle] = useState<"tab" | "space">("tab");
+  const [indentWidth, setIndentWidth] = useState(4);
   const [code, setCode] = useState(initialCode);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [cssVars, setCssVars] = useState<Record<string, string>>({});
@@ -351,7 +354,7 @@ export default function App() {
 
   const buildReport = useCallback(() => {
     const lines: string[] = [];
-    lines.push("## shiki-vim debug report");
+    lines.push("## react.vim debug report");
     lines.push("");
     lines.push(`- theme: ${theme}`);
     lines.push(`- lang: ${lang}`);
@@ -468,7 +471,7 @@ export default function App() {
   return (
     <div>
       <h1 style={{ marginBottom: "1rem", fontSize: "1.5rem" }}>
-        shiki-vim debug
+        react.vim debug
       </h1>
 
       {/* Controls */}
@@ -482,10 +485,37 @@ export default function App() {
           </label>
           <label style={labelStyle}>
             Lang
-            <select value={lang} onChange={(e) => setLang(e.target.value)} style={selectStyle}>
+            <select value={lang} onChange={(e) => {
+              const newLang = e.target.value;
+              setLang(newLang);
+              const isTab = tabLanguages.has(newLang);
+              setIndentStyle(isTab ? "tab" : "space");
+              setIndentWidth(isTab ? 4 : 2);
+            }} style={selectStyle}>
               {langs.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </label>
+          <label style={labelStyle}>
+            Indent
+            <select value={indentStyle} onChange={(e) => {
+              const style = e.target.value as "tab" | "space";
+              setIndentStyle(style);
+              setIndentWidth(style === "tab" ? 4 : 2);
+            }} style={selectStyle}>
+              <option value="tab">Tab</option>
+              <option value="space">Space</option>
+            </select>
+          </label>
+          {indentStyle === "space" && (
+            <label style={labelStyle}>
+              Width
+              <select value={indentWidth} onChange={(e) => {
+                setIndentWidth(Number(e.target.value));
+              }} style={selectStyle}>
+                {[2, 4, 8].map((w) => <option key={w} value={w}>{w}</option>)}
+              </select>
+            </label>
+          )}
         </div>
 
         <div style={cssVarsSectionStyle}>
@@ -535,12 +565,16 @@ export default function App() {
       {/* Editor */}
       <div style={cssVars as CSSProperties}>
         <ShikiVim
+          key={`${indentStyle}-${indentWidth}`}
           content={code}
           highlighter={highlighter}
           lang={lang}
           theme={theme}
           onChange={setCode}
+          onYank={(text) => navigator.clipboard.writeText(text)}
           onAction={handleAction}
+          indentStyle={indentStyle}
+          indentWidth={indentWidth}
           autoFocus
           className="debug-editor"
         />

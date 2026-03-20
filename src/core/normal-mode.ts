@@ -33,8 +33,56 @@ import { handleCtrlKey } from "./ctrl-keys";
 import { resolveMotion } from "./motion-resolver";
 import { executeOperatorOnRange, executeLineOperator } from "./operators";
 import { handleCharPending } from "./char-pending";
-import { motionGG } from "./motions";
+import {
+  motionGG,
+  motionDollar,
+  motionFChar,
+  motionFCharBack,
+  motionTChar,
+  motionTCharBack,
+} from "./motions";
 import { searchInBuffer } from "./search";
+import { resolveTextObject } from "./text-objects";
+
+function indentOpts(ctx: VimContext) {
+  return { style: ctx.indentStyle, width: ctx.indentWidth };
+}
+
+/**
+ * Store yanked text into the appropriate register(s).
+ * Always updates the unnamed register. If selectedRegister is set,
+ * also stores in the named register and clears the selection.
+ */
+function storeRegister(ctx: VimContext, text: string): Partial<VimContext> {
+  const result: Partial<VimContext> = { register: text };
+  if (ctx.selectedRegister) {
+    result.registers = {
+      ...ctx.registers,
+      [ctx.selectedRegister]: text,
+    };
+  }
+  return result;
+}
+
+/**
+ * Get the text from the active register (selected or unnamed).
+ */
+function getRegisterText(ctx: VimContext): string {
+  if (ctx.selectedRegister) {
+    return ctx.registers[ctx.selectedRegister] ?? "";
+  }
+  return ctx.register;
+}
+
+/**
+ * Append register name to a status message if a named register is selected.
+ */
+function withRegisterInfo(ctx: VimContext, msg: string): string {
+  if (ctx.selectedRegister && msg) {
+    return `${msg} into "${ctx.selectedRegister}`;
+  }
+  return msg;
+}
 
 /**
  * Main handler for normal mode.
@@ -47,9 +95,29 @@ export function processNormalMode(
   ctrlKey: boolean,
   readOnly: boolean = false,
 ): KeystrokeResult {
+  // --- Mark pending (m + a-z) ---
+  if (ctx.phase === "mark-pending") {
+    return handleMarkPending(key, ctx);
+  }
+
+  // --- Jump to mark pending (` + a-z) ---
+  if (ctx.phase === "jump-mark-pending") {
+    return handleJumpMarkPending(key, ctx, buffer);
+  }
+
+  // --- Register pending ("x) ---
+  if (ctx.phase === "register-pending") {
+    return handleRegisterPending(key, ctx);
+  }
+
   // --- g prefix pending ---
   if (ctx.phase === "g-pending") {
     return handleGPending(key, ctx, buffer);
+  }
+
+  // --- Text object pending (i/a + object key) ---
+  if (ctx.phase === "text-object-pending") {
+    return handleTextObjectPending(key, ctx, buffer);
   }
 
   // --- Character pending (f, F, t, T, r) ---
@@ -67,12 +135,13 @@ export function processNormalMode(
     // prettier-ignore
     const mutatingKeys = new Set([
       "i", "a", "o", "I", "A", "O",  // insert entry
-      "x", "p", "P",                   // edit commands
-      "d", "c",                         // mutating operators (y is allowed)
+      "x", "p", "P", "~",               // edit commands
+      "d", "c", "D", "C", ">", "<",    // mutating operators (y is allowed)
       "J",                              // join lines
       "u",                              // undo
       "r",                              // replace char
       ":",                              // ex commands
+      ".",                              // dot repeat
     ]);
     if (mutatingKeys.has(key)) {
       return { newCtx: resetContext(ctx), actions: [] };
@@ -82,6 +151,14 @@ export function processNormalMode(
   // --- Count input ---
   if (isCountKey(key, ctx)) {
     return accumulateCount(key, ctx);
+  }
+
+  // --- Register prefix ("x) ---
+  if (key === '"') {
+    return {
+      newCtx: { ...ctx, phase: "register-pending" },
+      actions: [],
+    };
   }
 
   // --- Key processing during operator-pending ---
@@ -173,9 +250,43 @@ export function processNormalMode(
     return handleSearchRepeat(key, ctx, buffer);
   }
 
+  // --- * / #: search word under cursor ---
+  if (key === "*" || key === "#") {
+    return handleWordSearch(key, ctx, buffer);
+  }
+
+  // --- ; / ,: repeat last f/F/t/T ---
+  if (key === ";" || key === ",") {
+    return handleCharSearchRepeat(key, ctx, buffer);
+  }
+
   // --- J: join lines ---
   if (key === "J") {
     return handleJoinLines(ctx, buffer);
+  }
+
+  // --- m: set mark ---
+  if (key === "m") {
+    return {
+      newCtx: { ...ctx, phase: "mark-pending" },
+      actions: [],
+    };
+  }
+
+  // --- `: jump to mark ---
+  if (key === "`") {
+    return {
+      newCtx: { ...ctx, phase: "jump-mark-pending" },
+      actions: [],
+    };
+  }
+
+  // --- ': jump to mark (line-wise, first non-blank) ---
+  if (key === "'") {
+    return {
+      newCtx: { ...ctx, phase: "jump-mark-pending" },
+      actions: [],
+    };
   }
 
   // --- Unmatched key -> reset ---
@@ -193,6 +304,73 @@ export function processNormalMode(
  * Key processing after g prefix.
  * gg -> move to the beginning of the file
  */
+/**
+ * Key processing during text-object-pending state.
+ * Receives the object key (w, W, ", ', (, {, [, etc.) and executes the operator.
+ */
+/**
+ * Handle register name input after " prefix.
+ * Valid register names: a-z (named), " (unnamed).
+ */
+function handleRegisterPending(
+  key: string,
+  ctx: VimContext,
+): KeystrokeResult {
+  if (/^[a-z"]$/i.test(key)) {
+    return {
+      newCtx: {
+        ...ctx,
+        phase: "idle",
+        selectedRegister: key === '"' ? null : key.toLowerCase(),
+      },
+      actions: [],
+    };
+  }
+  // Invalid register name -> reset
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
+function handleTextObjectPending(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const modifier = ctx.textObjectModifier!;
+  const range = resolveTextObject(modifier, key, ctx.cursor, buffer);
+
+  if (!range) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  // If in operator-pending, execute the operator on the text object range
+  if (ctx.operator) {
+    buffer.saveUndoPoint(ctx.cursor);
+    const result = executeOperatorOnRange(ctx.operator, range, buffer, ctx.cursor, indentOpts(ctx));
+
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        mode: result.newMode,
+        cursor: result.newCursor,
+        ...storeRegister(ctx, result.yankedText),
+        statusMessage: result.newMode === "insert"
+          ? "-- INSERT --"
+          : result.statusMessage || "",
+      },
+      actions: [
+        ...result.actions,
+        { type: "cursor-move", position: result.newCursor },
+        ...(result.newMode !== ctx.mode
+          ? [{ type: "mode-change" as const, mode: result.newMode }]
+          : []),
+      ],
+    };
+  }
+
+  // No operator (shouldn't happen in normal mode, but handle gracefully)
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
 function handleGPending(
   key: string,
   ctx: VimContext,
@@ -210,13 +388,15 @@ function handleGPending(
         result.range,
         buffer,
         ctx.cursor,
+        indentOpts(ctx),
       );
       return {
         newCtx: {
           ...resetContext(ctx),
           mode: opResult.newMode,
           cursor: opResult.newCursor,
-          register: opResult.yankedText,
+          ...storeRegister(ctx, opResult.yankedText),
+          statusMessage: opResult.statusMessage,
         },
         actions: [
           ...opResult.actions,
@@ -262,14 +442,15 @@ function handleOperatorPending(
   if (key === ctx.operator) {
     buffer.saveUndoPoint(ctx.cursor);
     const count = getEffectiveCount(ctx);
-    const result = executeLineOperator(ctx.operator!, ctx.cursor, count, buffer);
+    const result = executeLineOperator(ctx.operator!, ctx.cursor, count, buffer, indentOpts(ctx));
 
     return {
       newCtx: {
         ...resetContext(ctx),
         mode: result.newMode,
         cursor: result.newCursor,
-        register: result.yankedText,
+        ...storeRegister(ctx, result.yankedText),
+        statusMessage: withRegisterInfo(ctx, result.statusMessage),
       },
       actions: [
         ...result.actions,
@@ -289,6 +470,50 @@ function handleOperatorPending(
     };
   }
 
+  // Text object (e.g., diw, ciw, yaw)
+  if (key === "i" || key === "a") {
+    return {
+      newCtx: {
+        ...ctx,
+        phase: "text-object-pending",
+        textObjectModifier: key,
+      },
+      actions: [],
+    };
+  }
+
+  // ; / , repeat last char search with operator (e.g., d;)
+  if ((key === ";" || key === ",") && ctx.lastCharSearch) {
+    const charMotion = resolveCharSearchRepeat(key, ctx, buffer);
+    if (charMotion && (charMotion.cursor.line !== ctx.cursor.line || charMotion.cursor.col !== ctx.cursor.col)) {
+      buffer.saveUndoPoint(ctx.cursor);
+      const result = executeOperatorOnRange(
+        ctx.operator!,
+        charMotion.range,
+        buffer,
+        ctx.cursor,
+        indentOpts(ctx),
+      );
+      return {
+        newCtx: {
+          ...resetContext(ctx),
+          mode: result.newMode,
+          cursor: result.newCursor,
+          ...storeRegister(ctx, result.yankedText),
+          statusMessage: withRegisterInfo(ctx, result.statusMessage),
+        },
+        actions: [
+          ...result.actions,
+          { type: "cursor-move", position: result.newCursor },
+          ...(result.newMode !== ctx.mode
+            ? [{ type: "mode-change" as const, mode: result.newMode }]
+            : []),
+        ],
+      };
+    }
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
   // g prefix (e.g., dgg)
   if (key === "g") {
     return {
@@ -300,7 +525,7 @@ function handleOperatorPending(
   // Motion
   const count = getEffectiveCount(ctx);
   const countExplicit = isCountExplicit(ctx);
-  const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit);
+  const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit, ctx);
 
   if (motion) {
     buffer.saveUndoPoint(ctx.cursor);
@@ -309,6 +534,7 @@ function handleOperatorPending(
       motion.range,
       buffer,
       ctx.cursor,
+      indentOpts(ctx),
     );
 
     return {
@@ -316,7 +542,8 @@ function handleOperatorPending(
         ...resetContext(ctx),
         mode: result.newMode,
         cursor: result.newCursor,
-        register: result.yankedText,
+        ...storeRegister(ctx, result.yankedText),
+        statusMessage: withRegisterInfo(ctx, result.statusMessage),
       },
       actions: [
         ...result.actions,
@@ -346,7 +573,7 @@ function tryMotion(
 ): KeystrokeResult | null {
   const count = getEffectiveCount(ctx);
   const countExplicit = isCountExplicit(ctx);
-  const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit);
+  const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit, ctx);
 
   if (!motion) return null;
 
@@ -465,9 +692,105 @@ function tryEditCommand(
       return handlePasteAfter(ctx, buffer, count);
     case "P":
       return handlePasteBefore(ctx, buffer, count);
+    case "D":
+      return handleDeleteToEndOfLine(ctx, buffer);
+    case "C":
+      return handleChangeToEndOfLine(ctx, buffer);
+    case "~":
+      return handleToggleCase(ctx, buffer, count);
     default:
       return null;
   }
+}
+
+/**
+ * D: Delete from cursor to end of line (equivalent to d$)
+ */
+function handleDeleteToEndOfLine(
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const motion = motionDollar(ctx.cursor, buffer, 1);
+  buffer.saveUndoPoint(ctx.cursor);
+  const result = executeOperatorOnRange("d", motion.range, buffer, ctx.cursor);
+
+  return {
+    newCtx: {
+      ...resetContext(ctx),
+      cursor: result.newCursor,
+      register: result.yankedText,
+      statusMessage: result.statusMessage,
+    },
+    actions: [
+      ...result.actions,
+      { type: "cursor-move", position: result.newCursor },
+    ],
+  };
+}
+
+/**
+ * C: Change from cursor to end of line (equivalent to c$)
+ */
+function handleChangeToEndOfLine(
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const motion = motionDollar(ctx.cursor, buffer, 1);
+  buffer.saveUndoPoint(ctx.cursor);
+  const result = executeOperatorOnRange("c", motion.range, buffer, ctx.cursor);
+
+  return {
+    newCtx: {
+      ...resetContext(ctx),
+      mode: "insert",
+      cursor: result.newCursor,
+      register: result.yankedText,
+      statusMessage: result.statusMessage || "-- INSERT --",
+    },
+    actions: [
+      ...result.actions,
+      { type: "cursor-move", position: result.newCursor },
+      { type: "mode-change", mode: "insert" },
+    ],
+  };
+}
+
+/**
+ * ~: Toggle case of the character under the cursor and advance
+ */
+function handleToggleCase(
+  ctx: VimContext,
+  buffer: TextBuffer,
+  count: number,
+): KeystrokeResult {
+  const lineLen = buffer.getLineLength(ctx.cursor.line);
+  if (lineLen === 0) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  buffer.saveUndoPoint(ctx.cursor);
+
+  const line = buffer.getLine(ctx.cursor.line);
+  const chars = line.split("");
+  const end = Math.min(ctx.cursor.col + count, lineLen);
+
+  for (let i = ctx.cursor.col; i < end; i++) {
+    const ch = chars[i];
+    chars[i] = ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase();
+  }
+
+  buffer.setLine(ctx.cursor.line, chars.join(""));
+
+  const newCol = Math.min(end, lineLen - 1);
+  const newCursor = { line: ctx.cursor.line, col: newCol };
+
+  return {
+    newCtx: { ...resetContext(ctx), cursor: newCursor },
+    actions: [
+      { type: "content-change", content: buffer.getContent() },
+      { type: "cursor-move", position: newCursor },
+    ],
+  };
 }
 
 /**
@@ -493,7 +816,7 @@ function handleDeleteChar(
   return {
     newCtx: {
       ...resetContext(ctx),
-      register: deleted,
+      ...storeRegister(ctx, deleted),
       cursor: newCursor,
     },
     actions: [
@@ -512,13 +835,15 @@ function handlePasteAfter(
   buffer: TextBuffer,
   count: number,
 ): KeystrokeResult {
-  if (!ctx.register) return { newCtx: ctx, actions: [] };
+  const text = getRegisterText(ctx);
+  if (!text) return { newCtx: resetContext(ctx), actions: [] };
 
   buffer.saveUndoPoint(ctx.cursor);
 
   // Line-wise paste (when the register ends with a newline)
-  if (ctx.register.endsWith("\n")) {
-    const lines = ctx.register.slice(0, -1).split("\n");
+  if (text.endsWith("\n")) {
+    const lines = text.slice(0, -1).split("\n");
+    const totalLines = lines.length * count;
     for (let i = 0; i < count; i++) {
       for (let j = lines.length - 1; j >= 0; j--) {
         buffer.insertLine(ctx.cursor.line + 1, lines[j]);
@@ -526,7 +851,11 @@ function handlePasteAfter(
     }
     const newCursor = { line: ctx.cursor.line + 1, col: 0 };
     return {
-      newCtx: { ...resetContext(ctx), cursor: newCursor },
+      newCtx: {
+        ...resetContext(ctx),
+        cursor: newCursor,
+        statusMessage: totalLines >= 2 ? `${totalLines} more lines` : "",
+      },
       actions: [
         { type: "content-change", content: buffer.getContent() },
         { type: "cursor-move", position: newCursor },
@@ -537,11 +866,11 @@ function handlePasteAfter(
   // Character-wise paste
   const col = ctx.cursor.col + 1;
   for (let i = 0; i < count; i++) {
-    buffer.insertAt(ctx.cursor.line, col, ctx.register);
+    buffer.insertAt(ctx.cursor.line, col, text);
   }
   const newCursor = {
     line: ctx.cursor.line,
-    col: col + ctx.register.length * count - 1,
+    col: col + text.length * count - 1,
   };
   return {
     newCtx: { ...resetContext(ctx), cursor: newCursor },
@@ -560,12 +889,14 @@ function handlePasteBefore(
   buffer: TextBuffer,
   count: number,
 ): KeystrokeResult {
-  if (!ctx.register) return { newCtx: ctx, actions: [] };
+  const text = getRegisterText(ctx);
+  if (!text) return { newCtx: resetContext(ctx), actions: [] };
 
   buffer.saveUndoPoint(ctx.cursor);
 
-  if (ctx.register.endsWith("\n")) {
-    const lines = ctx.register.slice(0, -1).split("\n");
+  if (text.endsWith("\n")) {
+    const lines = text.slice(0, -1).split("\n");
+    const totalLines = lines.length * count;
     for (let i = 0; i < count; i++) {
       for (let j = lines.length - 1; j >= 0; j--) {
         buffer.insertLine(ctx.cursor.line, lines[j]);
@@ -573,7 +904,11 @@ function handlePasteBefore(
     }
     const newCursor = { line: ctx.cursor.line, col: 0 };
     return {
-      newCtx: { ...resetContext(ctx), cursor: newCursor },
+      newCtx: {
+        ...resetContext(ctx),
+        cursor: newCursor,
+        statusMessage: totalLines >= 2 ? `${totalLines} more lines` : "",
+      },
       actions: [
         { type: "content-change", content: buffer.getContent() },
         { type: "cursor-move", position: newCursor },
@@ -582,11 +917,11 @@ function handlePasteBefore(
   }
 
   for (let i = 0; i < count; i++) {
-    buffer.insertAt(ctx.cursor.line, ctx.cursor.col, ctx.register);
+    buffer.insertAt(ctx.cursor.line, ctx.cursor.col, text);
   }
   const newCursor = {
     line: ctx.cursor.line,
-    col: ctx.cursor.col + ctx.register.length * count - 1,
+    col: ctx.cursor.col + text.length * count - 1,
   };
   return {
     newCtx: { ...resetContext(ctx), cursor: newCursor },
@@ -604,11 +939,21 @@ function handleUndo(
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult {
+  const linesBefore = buffer.getLineCount();
   const restored = buffer.undo(ctx.cursor);
 
   if (restored) {
+    const linesAfter = buffer.getLineCount();
+    const diff = linesAfter - linesBefore;
+    let statusMessage = "";
+    if (diff >= 2) {
+      statusMessage = `${diff} more lines`;
+    } else if (diff <= -2) {
+      statusMessage = `${Math.abs(diff)} fewer lines`;
+    }
+
     return {
-      newCtx: { ...resetContext(ctx), cursor: restored },
+      newCtx: { ...resetContext(ctx), cursor: restored, statusMessage },
       actions: [
         { type: "content-change", content: buffer.getContent() },
         { type: "cursor-move", position: restored },
@@ -649,6 +994,78 @@ function enterCommandLine(
 /**
  * n / N: Repeat the last search
  */
+/**
+ * * / #: Search for the word under the cursor.
+ * * searches forward, # searches backward.
+ */
+function handleWordSearch(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const line = buffer.getLine(ctx.cursor.line);
+  const word = getWordUnderCursor(line, ctx.cursor.col);
+
+  if (!word) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  // Use \b word boundaries for whole-word matching
+  const pattern = `\\b${escapeRegExp(word)}\\b`;
+  const direction = key === "*" ? "forward" : "backward";
+
+  const found = searchInBuffer(buffer, pattern, ctx.cursor, direction);
+
+  if (found) {
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        cursor: found,
+        lastSearch: pattern,
+        searchDirection: direction === "forward" ? "forward" : "backward",
+      },
+      actions: [{ type: "cursor-move", position: found }],
+    };
+  }
+
+  return {
+    newCtx: {
+      ...resetContext(ctx),
+      statusMessage: `Pattern not found: ${pattern}`,
+    },
+    actions: [
+      { type: "status-message", message: `Pattern not found: ${pattern}` },
+    ],
+  };
+}
+
+/**
+ * Extract the word under the cursor position.
+ */
+function getWordUnderCursor(line: string, col: number): string | null {
+  if (col >= line.length) return null;
+
+  // Check if cursor is on a word character
+  if (!/\w/.test(line[col])) return null;
+
+  // Expand left
+  let start = col;
+  while (start > 0 && /\w/.test(line[start - 1])) start--;
+
+  // Expand right
+  let end = col;
+  while (end < line.length - 1 && /\w/.test(line[end + 1])) end++;
+
+  return line.slice(start, end + 1);
+}
+
+/**
+ * Escape special regex characters in a string.
+ */
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function handleSearchRepeat(
   key: string,
   ctx: VimContext,
@@ -691,8 +1108,129 @@ function handleSearchRepeat(
 }
 
 /**
+ * Resolve the motion for a ; or , repeat of last f/F/t/T.
+ */
+function resolveCharSearchRepeat(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+) {
+  if (!ctx.lastCharSearch) return null;
+
+  const count = getEffectiveCount(ctx);
+  const { command, char } = ctx.lastCharSearch;
+  const reverseMap: Record<string, "f" | "F" | "t" | "T"> = {
+    f: "F", F: "f", t: "T", T: "t",
+  };
+  const effectiveCommand = key === "," ? reverseMap[command] : command;
+
+  switch (effectiveCommand) {
+    case "f":
+      return motionFChar(ctx.cursor, buffer, char, count);
+    case "F":
+      return motionFCharBack(ctx.cursor, buffer, char, count);
+    case "t":
+      return motionTChar(ctx.cursor, buffer, char, count);
+    case "T":
+      return motionTCharBack(ctx.cursor, buffer, char, count);
+    default:
+      return null;
+  }
+}
+
+/**
+ * ; / ,: Repeat last f/F/t/T search
+ * ; repeats in the same direction, , repeats in the opposite direction.
+ */
+function handleCharSearchRepeat(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const motion = resolveCharSearchRepeat(key, ctx, buffer);
+
+  if (
+    !motion ||
+    (motion.cursor.line === ctx.cursor.line &&
+      motion.cursor.col === ctx.cursor.col)
+  ) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  return {
+    newCtx: {
+      ...resetContext(ctx),
+      cursor: motion.cursor,
+    },
+    actions: [{ type: "cursor-move", position: motion.cursor }],
+  };
+}
+
+/**
  * J: Join the current line with the next line
  */
+/**
+ * m{a-z}: Set a mark at the current cursor position.
+ */
+function handleMarkPending(
+  key: string,
+  ctx: VimContext,
+): KeystrokeResult {
+  if (/^[a-z]$/.test(key)) {
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        marks: {
+          ...ctx.marks,
+          [key]: { ...ctx.cursor },
+        },
+      },
+      actions: [],
+    };
+  }
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
+/**
+ * `{a-z} or '{a-z}: Jump to a mark.
+ * ` jumps to exact position, ' jumps to the line's first non-blank character.
+ */
+function handleJumpMarkPending(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  if (/^[a-z]$/.test(key) && ctx.marks[key]) {
+    const mark = ctx.marks[key];
+    // Clamp to buffer bounds
+    const line = Math.min(mark.line, buffer.getLineCount() - 1);
+    const maxCol = Math.max(0, buffer.getLineLength(line) - 1);
+    const newCursor = { line, col: Math.min(mark.col, maxCol) };
+
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        cursor: newCursor,
+      },
+      actions: [{ type: "cursor-move", position: newCursor }],
+    };
+  }
+
+  if (/^[a-z]$/.test(key) && !ctx.marks[key]) {
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        statusMessage: `Mark '${key}' not set`,
+      },
+      actions: [
+        { type: "status-message", message: `Mark '${key}' not set` },
+      ],
+    };
+  }
+
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
 function handleJoinLines(
   ctx: VimContext,
   buffer: TextBuffer,
