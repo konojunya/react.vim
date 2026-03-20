@@ -23,9 +23,23 @@
       html { scroll-behavior: smooth; }
       body {
         -webkit-font-smoothing: antialiased;
-        background: linear-gradient(rgba(10,20,40,0.35), rgba(10,20,40,0.35)), #0A0F1A url("/background.svg") no-repeat left center / cover fixed;
+        background-color: #0A0F1A;
       }
-      #root { position: relative; z-index: 1; }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: linear-gradient(rgba(10,20,40,0.35), rgba(10,20,40,0.35)), url("/background.svg");
+        background-repeat: no-repeat;
+        background-position: left center;
+        background-size: cover;
+        z-index: 0;
+      }
+      #root { position: relative; z-index: 1; height: 100dvh; overflow-y: auto; }
+      @media (max-width: 480px) {
+        .hero-title { font-size: 28px !important; min-height: 100px !important; }
+        .hero-section { padding-bottom: 20vh !important; }
+      }
       @keyframes spin { to { transform: rotate(360deg); } }
       .quick-start pre { background: transparent !important; margin: 0; padding: 0; }
       @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
