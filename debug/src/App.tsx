@@ -540,6 +540,7 @@ export default function App() {
           lang={lang}
           theme={theme}
           onChange={setCode}
+          onYank={(text) => navigator.clipboard.writeText(text)}
           onAction={handleAction}
           autoFocus
           className="debug-editor"
