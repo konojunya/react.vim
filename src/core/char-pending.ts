@@ -1,17 +1,17 @@
 /**
  * char-pending.ts
  *
- * 文字待ちコマンド（f, F, t, T, r）のハンドラ。
+ * Handler for character-pending commands (f, F, t, T, r).
  *
- * これらのコマンドは、押された後に次の1文字を待つ:
- * - f{char}: 行内で前方に{char}を検索してジャンプ
- * - F{char}: 行内で後方に{char}を検索してジャンプ
- * - t{char}: 行内で前方に{char}の手前までジャンプ
- * - T{char}: 行内で後方に{char}の次までジャンプ
- * - r{char}: カーソル下の文字を{char}に置換
+ * These commands wait for the next character after being pressed:
+ * - f{char}: Search forward on the line for {char} and jump to it
+ * - F{char}: Search backward on the line for {char} and jump to it
+ * - t{char}: Search forward on the line and jump to just before {char}
+ * - T{char}: Search backward on the line and jump to just after {char}
+ * - r{char}: Replace the character under the cursor with {char}
  *
- * オペレーターペンディング中の場合（df{char} など）、
- * モーション範囲にオペレーターを適用する。
+ * When in operator-pending state (e.g., df{char}),
+ * the operator is applied to the motion range.
  */
 
 import type { VimContext } from "../types";
@@ -27,8 +27,8 @@ import {
 } from "./motions";
 
 /**
- * 文字待ちコマンドのキー入力を処理する。
- * ctx.charCommand に待っているコマンド種類が入っている。
+ * Process key input for character-pending commands.
+ * The pending command type is stored in ctx.charCommand.
  */
 export function handleCharPending(
   key: string,
@@ -37,23 +37,23 @@ export function handleCharPending(
 ): KeystrokeResult {
   const count = getEffectiveCount(ctx);
 
-  // r（1文字置換）は特別扱い
+  // r (single character replace) is handled specially
   if (ctx.charCommand === "r") {
     return handleReplace(key, ctx, buffer);
   }
 
-  // f, F, t, T のモーション解決
+  // Resolve motion for f, F, t, T
   const motion = resolveCharMotion(ctx.charCommand!, key, ctx, buffer, count);
 
   if (!motion) {
-    // 無効な文字 → リセット
+    // Invalid character -> reset
     return {
       newCtx: resetContext(ctx),
       actions: [],
     };
   }
 
-  // オペレーターペンディング中の場合（df{char} など）
+  // If in operator-pending state (e.g., df{char})
   if (ctx.operator) {
     buffer.saveUndoPoint(ctx.cursor);
     const result = executeOperatorOnRange(
@@ -82,7 +82,7 @@ export function handleCharPending(
     };
   }
 
-  // 単純なモーション
+  // Simple motion
   return {
     newCtx: {
       ...resetContext(ctx),
@@ -93,8 +93,8 @@ export function handleCharPending(
 }
 
 /**
- * r{char}: カーソル下の1文字を置換する。
- * 行が空の場合は何もしない。
+ * r{char}: Replace the single character under the cursor.
+ * Does nothing if the line is empty.
  */
 function handleReplace(
   key: string,
@@ -124,7 +124,7 @@ function handleReplace(
 }
 
 /**
- * charCommand と入力文字からモーション結果を解決する。
+ * Resolve a motion result from the charCommand and the input character.
  */
 function resolveCharMotion(
   command: string,

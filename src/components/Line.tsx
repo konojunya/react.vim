@@ -1,36 +1,36 @@
 /**
  * Line.tsx
  *
- * エディタの1行を描画するコンポーネント。
- * Shikiのトークン列を受け取り、色付きのspanとしてレンダリングする。
+ * Component that renders a single line of the editor.
+ * Receives a Shiki token sequence and renders it as colored spans.
  *
- * ビジュアルモードの選択ハイライトもここで処理する。
+ * Also handles visual mode selection highlighting here.
  */
 
 import type { ThemedToken } from "shiki";
 
 export interface LineProps {
-  /** 行番号（0-based） */
+  /** Line number (0-based) */
   lineIndex: number;
-  /** この行のShikiトークン列 */
+  /** Shiki token sequence for this line */
   tokens: ThemedToken[];
-  /** 行番号を表示するか */
+  /** Whether to display line numbers */
   showLineNumbers: boolean;
-  /** 全体の行数（行番号の桁数計算用） */
+  /** Total number of lines (for calculating line number digit width) */
   totalLines: number;
-  /** この行が選択されているか（ビジュアルモード用） */
+  /** Whether this line is selected (for visual mode) */
   isSelected: boolean;
-  /** 行内の選択開始カラム（文字単位選択用） */
+  /** Selection start column within the line (for character-wise selection) */
   selectionStartCol?: number;
-  /** 行内の選択終了カラム（文字単位選択用） */
+  /** Selection end column within the line (for character-wise selection) */
   selectionEndCol?: number;
 }
 
 /**
- * エディタの1行を描画する。
+ * Renders a single line of the editor.
  *
- * 行番号 + トークン列で構成される。
- * 空行には非表示のスペースを入れて高さを維持する。
+ * Composed of a line number and a token sequence.
+ * Empty lines contain an invisible space to maintain height.
  */
 export function Line({
   lineIndex,
@@ -41,7 +41,7 @@ export function Line({
   selectionStartCol,
   selectionEndCol,
 }: LineProps) {
-  // 行番号の桁数を計算（全行で揃えるため）
+  // Calculate line number digit width (to align across all lines)
   const gutterWidth = String(totalLines).length;
 
   return (
@@ -49,7 +49,7 @@ export function Line({
       className="sv-line"
       data-line={lineIndex}
     >
-      {/* 行番号ガター */}
+      {/* Line number gutter */}
       {showLineNumbers && (
         <span
           className="sv-line-number"
@@ -59,10 +59,10 @@ export function Line({
         </span>
       )}
 
-      {/* 行コンテンツ */}
+      {/* Line content */}
       <span className="sv-line-content">
         {tokens.length === 0 || (tokens.length === 1 && tokens[0].content === "") ? (
-          // 空行: 高さ維持のために不可視文字を入れる
+          // Empty line: insert invisible character to maintain height
           <span>{"\n"}</span>
         ) : (
           renderTokens(tokens, isSelected, selectionStartCol, selectionEndCol)
@@ -73,8 +73,8 @@ export function Line({
 }
 
 /**
- * トークン列をspanとしてレンダリングする。
- * 選択状態がある場合は、選択範囲のスタイルを適用する。
+ * Render the token sequence as spans.
+ * If there is a selection, apply selection styles to the range.
  */
 function renderTokens(
   tokens: ThemedToken[],
@@ -82,7 +82,7 @@ function renderTokens(
   selectionStartCol?: number,
   selectionEndCol?: number,
 ): React.ReactNode[] {
-  // 行全体が選択されている場合（visual-line モード）
+  // Entire line is selected (visual-line mode)
   if (isSelected && selectionStartCol === undefined) {
     return tokens.map((token, i) => (
       <span
@@ -95,7 +95,7 @@ function renderTokens(
     ));
   }
 
-  // 文字単位選択がない場合は通常描画
+  // Normal rendering when there is no character-wise selection
   if (selectionStartCol === undefined || selectionEndCol === undefined) {
     return tokens.map((token, i) => (
       <span
@@ -108,14 +108,14 @@ function renderTokens(
     ));
   }
 
-  // 文字単位の選択あり: トークンを分割してハイライト
+  // Character-wise selection present: split tokens and highlight
   return renderTokensWithSelection(tokens, selectionStartCol, selectionEndCol);
 }
 
 /**
- * 文字単位選択がある場合のトークンレンダリング。
- * トークンの境界と選択範囲の境界が一致しない場合、
- * トークンを分割して選択部分にクラスを付与する。
+ * Token rendering when character-wise selection is present.
+ * When token boundaries and selection boundaries do not align,
+ * tokens are split and the selected portions are given a CSS class.
  */
 function renderTokensWithSelection(
   tokens: ThemedToken[],
@@ -130,7 +130,7 @@ function renderTokensWithSelection(
     const tokenStart = col;
     const tokenEnd = col + token.content.length;
 
-    // トークンが選択範囲と重ならない場合
+    // Token does not overlap with the selection range
     if (tokenEnd <= selStart || tokenStart >= selEnd) {
       result.push(
         <span key={`${i}`} className="sv-token" style={{ color: token.color }}>
@@ -138,7 +138,7 @@ function renderTokensWithSelection(
         </span>,
       );
     }
-    // トークン全体が選択範囲内の場合
+    // Entire token is within the selection range
     else if (tokenStart >= selStart && tokenEnd <= selEnd) {
       result.push(
         <span
@@ -150,7 +150,7 @@ function renderTokensWithSelection(
         </span>,
       );
     }
-    // トークンが選択範囲と部分的に重なる場合 → 分割
+    // Token partially overlaps with the selection range -> split
     else {
       const parts = splitTokenBySelection(
         token,
@@ -178,7 +178,7 @@ function renderTokensWithSelection(
 }
 
 /**
- * トークンを選択範囲で分割する。
+ * Split a token by the selection range.
  */
 function splitTokenBySelection(
   token: ThemedToken,
@@ -191,12 +191,12 @@ function splitTokenBySelection(
   const relSelStart = Math.max(0, selStart - tokenStart);
   const relSelEnd = Math.min(text.length, selEnd - tokenStart);
 
-  // 選択前の部分
+  // Part before the selection
   if (relSelStart > 0) {
     parts.push({ content: text.slice(0, relSelStart), selected: false });
   }
 
-  // 選択部分
+  // Selected part
   if (relSelEnd > relSelStart) {
     parts.push({
       content: text.slice(relSelStart, relSelEnd),
@@ -204,7 +204,7 @@ function splitTokenBySelection(
     });
   }
 
-  // 選択後の部分
+  // Part after the selection
   if (relSelEnd < text.length) {
     parts.push({ content: text.slice(relSelEnd), selected: false });
   }

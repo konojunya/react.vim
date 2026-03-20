@@ -1,19 +1,19 @@
 /**
  * normal-mode.ts
  *
- * ノーマルモードのキーストローク処理。
+ * Normal mode keystroke processing.
  *
- * ノーマルモードはVimのデフォルトモードで、以下を処理する:
- * - カウントプレフィックス（3j, 5dw など）
- * - オペレーター（d, y, c）→ オペレーターペンディング状態へ
- * - モーション（h, j, k, l, w, e, b, etc.）
- * - インサートモードへの遷移（i, a, o, I, A, O）
- * - 編集コマンド（x, p, P, r, J）
- * - ビジュアルモードへの遷移（v, V）
- * - コマンドライン / 検索への遷移（:, /, ?）
- * - undo / redo（u, Ctrl-R）
- * - g プレフィックスコマンド（gg）
- * - 文字待ちコマンド（f, F, t, T, r）
+ * Normal mode is Vim's default mode and handles:
+ * - Count prefixes (3j, 5dw, etc.)
+ * - Operators (d, y, c) -> transition to operator-pending state
+ * - Motions (h, j, k, l, w, e, b, etc.)
+ * - Transition to insert mode (i, a, o, I, A, O)
+ * - Edit commands (x, p, P, r, J)
+ * - Transition to visual mode (v, V)
+ * - Transition to command-line / search (:, /, ?)
+ * - Undo / redo (u, Ctrl-R)
+ * - g prefix commands (gg)
+ * - Character-pending commands (f, F, t, T, r)
  */
 
 import type { VimContext, VimAction, CursorPosition } from "../types";
@@ -37,8 +37,8 @@ import { motionGG } from "./motions";
 import { searchInBuffer } from "./search";
 
 /**
- * ノーマルモードのメインハンドラ。
- * キーストロークを受け取り、状態遷移とアクションを返す。
+ * Main handler for normal mode.
+ * Receives a keystroke and returns state transitions and actions.
  */
 export function processNormalMode(
   key: string,
@@ -47,22 +47,22 @@ export function processNormalMode(
   ctrlKey: boolean,
   readOnly: boolean = false,
 ): KeystrokeResult {
-  // --- g プレフィックスペンディング ---
+  // --- g prefix pending ---
   if (ctx.phase === "g-pending") {
     return handleGPending(key, ctx, buffer);
   }
 
-  // --- 文字ペンディング (f, F, t, T, r) ---
+  // --- Character pending (f, F, t, T, r) ---
   if (ctx.phase === "char-pending") {
     return handleCharPending(key, ctx, buffer);
   }
 
-  // --- Ctrlキーコンビネーション ---
+  // --- Ctrl key combinations ---
   if (ctrlKey) {
     return handleCtrlKey(key, ctx, buffer, readOnly);
   }
 
-  // --- readOnly: ミューテーション操作をブロック ---
+  // --- readOnly: block mutating operations ---
   if (readOnly && ctx.phase === "idle") {
     // prettier-ignore
     const mutatingKeys = new Set([
@@ -79,17 +79,17 @@ export function processNormalMode(
     }
   }
 
-  // --- カウント入力 ---
+  // --- Count input ---
   if (isCountKey(key, ctx)) {
     return accumulateCount(key, ctx);
   }
 
-  // --- オペレーターペンディング中のキー処理 ---
+  // --- Key processing during operator-pending ---
   if (ctx.phase === "operator-pending" && ctx.operator) {
     return handleOperatorPending(key, ctx, buffer);
   }
 
-  // --- オペレーター開始 ---
+  // --- Start operator ---
   if (isOperator(key)) {
     return {
       newCtx: {
@@ -102,11 +102,11 @@ export function processNormalMode(
     };
   }
 
-  // --- モーション ---
+  // --- Motion ---
   const motionResult = tryMotion(key, ctx, buffer);
   if (motionResult) return motionResult;
 
-  // --- g プレフィックス ---
+  // --- g prefix ---
   if (key === "g") {
     return {
       newCtx: { ...ctx, phase: "g-pending" },
@@ -114,7 +114,7 @@ export function processNormalMode(
     };
   }
 
-  // --- 文字待ちコマンド ---
+  // --- Character-pending commands ---
   if (isCharCommand(key)) {
     return {
       newCtx: { ...ctx, phase: "char-pending", charCommand: key },
@@ -122,11 +122,11 @@ export function processNormalMode(
     };
   }
 
-  // --- インサートモード遷移 ---
+  // --- Insert mode entry ---
   const insertResult = tryInsertEntry(key, ctx, buffer);
   if (insertResult) return insertResult;
 
-  // --- 編集コマンド ---
+  // --- Edit commands ---
   const editResult = tryEditCommand(key, ctx, buffer);
   if (editResult) return editResult;
 
@@ -135,7 +135,7 @@ export function processNormalMode(
     return handleUndo(ctx, buffer);
   }
 
-  // --- ビジュアルモード ---
+  // --- Visual mode ---
   if (key === "v") {
     return {
       newCtx: {
@@ -163,22 +163,22 @@ export function processNormalMode(
     };
   }
 
-  // --- コマンドライン / 検索 ---
+  // --- Command-line / search ---
   if (key === ":" || key === "/" || key === "?") {
     return enterCommandLine(key as ":" | "/" | "?", ctx);
   }
 
-  // --- n / N: 検索繰り返し ---
+  // --- n / N: repeat search ---
   if (key === "n" || key === "N") {
     return handleSearchRepeat(key, ctx, buffer);
   }
 
-  // --- J: 行結合 ---
+  // --- J: join lines ---
   if (key === "J") {
     return handleJoinLines(ctx, buffer);
   }
 
-  // --- マッチしないキー → リセット ---
+  // --- Unmatched key -> reset ---
   return {
     newCtx: resetContext(ctx),
     actions: [],
@@ -186,12 +186,12 @@ export function processNormalMode(
 }
 
 // =====================
-// 内部ハンドラ
+// Internal handlers
 // =====================
 
 /**
- * g プレフィックス後のキー処理。
- * gg → ファイル先頭へ移動
+ * Key processing after g prefix.
+ * gg -> move to the beginning of the file
  */
 function handleGPending(
   key: string,
@@ -202,7 +202,7 @@ function handleGPending(
     const count = ctx.count > 0 ? ctx.count : null;
     const result = motionGG(ctx.cursor, buffer, count);
 
-    // オペレーターペンディング中ならオペレーターを実行
+    // If in operator-pending state, execute the operator
     if (ctx.operator) {
       buffer.saveUndoPoint(ctx.cursor);
       const opResult = executeOperatorOnRange(
@@ -237,7 +237,7 @@ function handleGPending(
     };
   }
 
-  // 未知の g コマンド → リセット
+  // Unknown g command -> reset
   return {
     newCtx: resetContext(ctx),
     actions: [],
@@ -245,20 +245,20 @@ function handleGPending(
 }
 
 /**
- * オペレーターペンディング中のキー処理。
- * オペレーターの後にモーションやカウントが来るのを待つ。
+ * Key processing during operator-pending state.
+ * Waits for a motion or count after the operator.
  */
 function handleOperatorPending(
   key: string,
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult {
-  // カウント入力
+  // Count input
   if (isCountKey(key, ctx)) {
     return accumulateCount(key, ctx);
   }
 
-  // 同じオペレーターキー → 行操作（dd, yy, cc）
+  // Same operator key -> line operation (dd, yy, cc)
   if (key === ctx.operator) {
     buffer.saveUndoPoint(ctx.cursor);
     const count = getEffectiveCount(ctx);
@@ -281,7 +281,7 @@ function handleOperatorPending(
     };
   }
 
-  // 文字待ちコマンド（df{char} など）
+  // Character-pending commands (e.g., df{char})
   if (isCharCommand(key) && key !== "r") {
     return {
       newCtx: { ...ctx, phase: "char-pending", charCommand: key },
@@ -289,7 +289,7 @@ function handleOperatorPending(
     };
   }
 
-  // g プレフィックス（dgg など）
+  // g prefix (e.g., dgg)
   if (key === "g") {
     return {
       newCtx: { ...ctx, phase: "g-pending" },
@@ -297,7 +297,7 @@ function handleOperatorPending(
     };
   }
 
-  // モーション
+  // Motion
   const count = getEffectiveCount(ctx);
   const countExplicit = isCountExplicit(ctx);
   const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit);
@@ -328,7 +328,7 @@ function handleOperatorPending(
     };
   }
 
-  // 無効なキー → オペレーターキャンセル
+  // Invalid key -> cancel operator
   return {
     newCtx: resetContext(ctx),
     actions: [],
@@ -336,8 +336,8 @@ function handleOperatorPending(
 }
 
 /**
- * モーションの解決と実行を試みる。
- * モーションにマッチしなければnullを返す。
+ * Attempt to resolve and execute a motion.
+ * Returns null if no motion matches.
  */
 function tryMotion(
   key: string,
@@ -360,8 +360,8 @@ function tryMotion(
 }
 
 /**
- * インサートモードへの遷移を試みる。
- * i, a, I, A, o, O をハンドルする。
+ * Attempt to transition to insert mode.
+ * Handles i, a, I, A, o, O.
  */
 function tryInsertEntry(
   key: string,
@@ -373,7 +373,7 @@ function tryInsertEntry(
       return modeChange(ctx, "insert");
 
     case "a": {
-      // カーソルを1つ右へ（行末を超えない）
+      // Move cursor one position to the right (do not exceed end of line)
       const col = Math.min(
         ctx.cursor.col + 1,
         buffer.getLineLength(ctx.cursor.line),
@@ -385,7 +385,7 @@ function tryInsertEntry(
     }
 
     case "I": {
-      // 行の最初の非空白文字へ移動してinsert
+      // Move to the first non-whitespace character on the line and enter insert
       const lineText = buffer.getLine(ctx.cursor.line);
       const col = lineText.match(/\S/)?.index ?? 0;
       return modeChange(
@@ -395,7 +395,7 @@ function tryInsertEntry(
     }
 
     case "A": {
-      // 行末へ移動してinsert
+      // Move to end of line and enter insert
       const col = buffer.getLineLength(ctx.cursor.line);
       return modeChange(
         { ...ctx, cursor: { ...ctx.cursor, col } },
@@ -404,7 +404,7 @@ function tryInsertEntry(
     }
 
     case "o": {
-      // 現在行の下に空行を挿入してinsert
+      // Insert a blank line below the current line and enter insert
       buffer.saveUndoPoint(ctx.cursor);
       buffer.insertLine(ctx.cursor.line + 1, "");
       const newCursor = { line: ctx.cursor.line + 1, col: 0 };
@@ -424,7 +424,7 @@ function tryInsertEntry(
     }
 
     case "O": {
-      // 現在行の上に空行を挿入してinsert
+      // Insert a blank line above the current line and enter insert
       buffer.saveUndoPoint(ctx.cursor);
       buffer.insertLine(ctx.cursor.line, "");
       const newCursor = { line: ctx.cursor.line, col: 0 };
@@ -449,7 +449,7 @@ function tryInsertEntry(
 }
 
 /**
- * 編集コマンド（x, p, P）を試みる。
+ * Attempt to handle edit commands (x, p, P).
  */
 function tryEditCommand(
   key: string,
@@ -471,7 +471,7 @@ function tryEditCommand(
 }
 
 /**
- * x: カーソル下の文字を削除
+ * x: Delete the character under the cursor
  */
 function handleDeleteChar(
   ctx: VimContext,
@@ -505,7 +505,7 @@ function handleDeleteChar(
 }
 
 /**
- * p: カーソルの後ろにペースト
+ * p: Paste after the cursor
  */
 function handlePasteAfter(
   ctx: VimContext,
@@ -516,7 +516,7 @@ function handlePasteAfter(
 
   buffer.saveUndoPoint(ctx.cursor);
 
-  // 行単位のペースト（レジスタが改行で終わる場合）
+  // Line-wise paste (when the register ends with a newline)
   if (ctx.register.endsWith("\n")) {
     const text = ctx.register.slice(0, -1);
     for (let i = 0; i < count; i++) {
@@ -532,7 +532,7 @@ function handlePasteAfter(
     };
   }
 
-  // 文字単位のペースト
+  // Character-wise paste
   const col = ctx.cursor.col + 1;
   for (let i = 0; i < count; i++) {
     buffer.insertAt(ctx.cursor.line, col, ctx.register);
@@ -551,7 +551,7 @@ function handlePasteAfter(
 }
 
 /**
- * P: カーソルの前にペースト
+ * P: Paste before the cursor
  */
 function handlePasteBefore(
   ctx: VimContext,
@@ -621,7 +621,7 @@ function handleUndo(
 }
 
 /**
- * コマンドライン / 検索モードへ遷移
+ * Transition to command-line / search mode
  */
 function enterCommandLine(
   type: ":" | "/" | "?",
@@ -643,7 +643,7 @@ function enterCommandLine(
 }
 
 /**
- * n / N: 前回の検索を繰り返す
+ * n / N: Repeat the last search
  */
 function handleSearchRepeat(
   key: string,
@@ -654,7 +654,7 @@ function handleSearchRepeat(
     return { newCtx: ctx, actions: [] };
   }
 
-  // N は検索方向を反転
+  // N reverses the search direction
   const direction =
     key === "n"
       ? ctx.searchDirection
@@ -687,7 +687,7 @@ function handleSearchRepeat(
 }
 
 /**
- * J: 現在行と次の行を結合
+ * J: Join the current line with the next line
  */
 function handleJoinLines(
   ctx: VimContext,

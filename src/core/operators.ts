@@ -1,37 +1,37 @@
 /**
  * operators.ts
  *
- * Vimのオペレーター（d, y, c）の実行ロジック。
+ * Execution logic for Vim operators (d, y, c).
  *
- * オペレーターはモーションと組み合わせて使われる:
- *   d + w → 単語を削除
- *   y + $ → 行末までヤンク
- *   c + c → 行全体を変更
+ * Operators are used in combination with motions:
+ *   d + w -> delete a word
+ *   y + $ -> yank to end of line
+ *   c + c -> change the entire line
  *
- * ここでは実際のバッファ操作とアクション生成を担当する。
+ * This module handles the actual buffer operations and action generation.
  */
 
 import type { CursorPosition, VimAction, VimMode, Operator } from "../types";
 import type { TextBuffer } from "./buffer";
 import type { MotionRange } from "./motions";
 
-/** オペレーター実行結果 */
+/** Operator execution result */
 export interface OperatorResult {
-  /** 実行後のアクション一覧 */
+  /** List of actions after execution */
   actions: VimAction[];
-  /** 操作後のカーソル位置 */
+  /** Cursor position after the operation */
   newCursor: CursorPosition;
-  /** 操作後のモード（cの場合insertになる） */
+  /** Mode after the operation (becomes insert for 'c') */
   newMode: VimMode;
-  /** ヤンクされたテキスト */
+  /** The yanked text */
   yankedText: string;
 }
 
 /**
- * モーション範囲に対してオペレーターを実行する。
+ * Execute an operator on a motion range.
  *
- * linewise な場合は行単位で操作、そうでなければ文字単位で操作する。
- * 'c' オペレーターの場合、削除後にinsertモードに遷移する。
+ * If linewise, operates on whole lines; otherwise operates character-wise.
+ * For the 'c' operator, transitions to insert mode after deletion.
  */
 export function executeOperatorOnRange(
   operator: Operator,
@@ -46,8 +46,8 @@ export function executeOperatorOnRange(
 }
 
 /**
- * 行単位のオペレーター実行。
- * dd, yy, cc や、j/k モーションとの組み合わせで使われる。
+ * Line-wise operator execution.
+ * Used for dd, yy, cc, and combinations with j/k motions.
  */
 function executeLinewiseOperator(
   operator: Operator,
@@ -59,7 +59,7 @@ function executeLinewiseOperator(
   const endLine = Math.max(range.start.line, range.end.line);
   const lineCount = endLine - startLine + 1;
 
-  // ヤンク対象のテキストを取得（末尾に改行を付けて行単位であることを示す）
+  // Get the text to yank (append a newline to indicate line-wise operation)
   const deletedLines = buffer
     .getLines()
     .slice(startLine, endLine + 1)
@@ -68,7 +68,7 @@ function executeLinewiseOperator(
 
   const actions: VimAction[] = [{ type: "yank", text: yankedText }];
 
-  // y（ヤンク）は削除しない
+  // y (yank) does not delete
   if (operator === "y") {
     return {
       actions,
@@ -78,10 +78,10 @@ function executeLinewiseOperator(
     };
   }
 
-  // d / c は行を削除する
+  // d / c delete the lines
   buffer.deleteLines(startLine, lineCount);
 
-  // バッファが空になった場合、空行を挿入
+  // If the buffer becomes empty, insert a blank line
   if (buffer.getLineCount() === 0) {
     buffer.insertLine(0, "");
   }
@@ -89,7 +89,7 @@ function executeLinewiseOperator(
   const newLine = Math.min(startLine, buffer.getLineCount() - 1);
 
   if (operator === "c") {
-    // c (change): 削除した位置に空行を挿入してinsertモードへ
+    // c (change): insert a blank line at the deleted position and enter insert mode
     buffer.insertLine(newLine, "");
     actions.push({ type: "content-change", content: buffer.getContent() });
     return {
@@ -111,8 +111,8 @@ function executeLinewiseOperator(
 }
 
 /**
- * 文字単位のオペレーター実行。
- * dw, cw, y$ など、文字範囲での操作。
+ * Character-wise operator execution.
+ * Used for character-range operations like dw, cw, y$, etc.
  */
 function executeCharwiseOperator(
   operator: Operator,
@@ -120,7 +120,7 @@ function executeCharwiseOperator(
   buffer: TextBuffer,
   _cursor: CursorPosition,
 ): OperatorResult {
-  // start と end の順序を正規化
+  // Normalize the order of start and end
   let start = range.start;
   let end = range.end;
 
@@ -131,15 +131,15 @@ function executeCharwiseOperator(
     [start, end] = [end, start];
   }
 
-  // inclusive の場合、end.col を1つ進める（deleteRangeは排他的）
+  // If inclusive, advance end.col by one (deleteRange is exclusive)
   const endCol = range.inclusive ? end.col + 1 : end.col;
 
-  // ヤンク対象のテキストを取得
+  // Get the text to yank
   const yankedText = getTextInRange(buffer, start, { line: end.line, col: endCol });
 
   const actions: VimAction[] = [{ type: "yank", text: yankedText }];
 
-  // y（ヤンク）は削除しない
+  // y (yank) does not delete
   if (operator === "y") {
     return {
       actions,
@@ -149,11 +149,11 @@ function executeCharwiseOperator(
     };
   }
 
-  // d / c は範囲を削除する
+  // d / c delete the range
   buffer.deleteRange(start.line, start.col, end.line, endCol);
   actions.push({ type: "content-change", content: buffer.getContent() });
 
-  // カーソル位置を計算
+  // Calculate cursor position
   const newCursor = {
     line: start.line,
     col: operator === "c"
@@ -170,7 +170,7 @@ function executeCharwiseOperator(
 }
 
 /**
- * バッファから指定範囲のテキストを取得する（非破壊）
+ * Get text from the buffer within the specified range (non-destructive)
  */
 function getTextInRange(
   buffer: TextBuffer,
@@ -191,8 +191,8 @@ function getTextInRange(
 }
 
 /**
- * 行単位オペレーターを実行する（dd, yy, cc）。
- * count に応じて複数行を対象とする。
+ * Execute a line-wise operator (dd, yy, cc).
+ * Operates on multiple lines according to count.
  */
 export function executeLineOperator(
   operator: Operator,

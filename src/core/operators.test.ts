@@ -1,8 +1,8 @@
 /**
  * operators.test.ts
  *
- * オペレーター (d, y, c) の単体テストと、
- * executeOperatorOnRange / executeLineOperator の動作を検証する。
+ * Unit tests for operators (d, y, c) and
+ * verification of executeOperatorOnRange / executeLineOperator behavior.
  */
 
 import { describe, it, expect } from "vitest";
@@ -11,17 +11,17 @@ import type { MotionRange } from "./motions";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("オペレーター", () => {
+describe("Operators", () => {
   // ---------------------------------------------------
-  // executeOperatorOnRange: 文字単位の delete
+  // executeOperatorOnRange: character-wise delete
   // ---------------------------------------------------
-  describe("executeOperatorOnRange - 文字単位 delete", () => {
-    it("1単語分の範囲を削除する", () => {
+  describe("executeOperatorOnRange - character-wise delete", () => {
+    it("deletes a one-word range", () => {
       const buffer = new TextBuffer("hello world");
-      // dw: w motion の end は次の単語の先頭 (col 6), inclusive: false
+      // dw: w motion's end is the start of the next word (col 6), inclusive: false
       const range: MotionRange = {
         start: { line: 0, col: 0 },
         end: { line: 0, col: 6 },
@@ -40,7 +40,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("hello ");
     });
 
-    it("inclusive な範囲で末尾の文字も含めて削除する", () => {
+    it("deletes including the last character for an inclusive range", () => {
       const buffer = new TextBuffer("hello");
       const range: MotionRange = {
         start: { line: 0, col: 0 },
@@ -58,7 +58,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("hel");
     });
 
-    it("start > end のとき正規化して処理する", () => {
+    it("normalizes and processes when start > end", () => {
       const buffer = new TextBuffer("hello");
       const range: MotionRange = {
         start: { line: 0, col: 3 },
@@ -76,7 +76,7 @@ describe("オペレーター", () => {
       expect(result.newCursor.col).toBe(0);
     });
 
-    it("複数行にまたがる範囲を削除する", () => {
+    it("deletes a range spanning multiple lines", () => {
       const buffer = new TextBuffer("hello\nworld\nfoo");
       const range: MotionRange = {
         start: { line: 0, col: 3 },
@@ -96,12 +96,12 @@ describe("オペレーター", () => {
   });
 
   // ---------------------------------------------------
-  // executeOperatorOnRange: 文字単位の yank
+  // executeOperatorOnRange: character-wise yank
   // ---------------------------------------------------
-  describe("executeOperatorOnRange - 文字単位 yank", () => {
-    it("ヤンクのみで削除しない", () => {
+  describe("executeOperatorOnRange - character-wise yank", () => {
+    it("yanks without deleting", () => {
       const buffer = new TextBuffer("hello world");
-      // yw: w motion の end は次の単語の先頭 (col 6), inclusive: false
+      // yw: w motion's end is the start of the next word (col 6), inclusive: false
       const range: MotionRange = {
         start: { line: 0, col: 0 },
         end: { line: 0, col: 6 },
@@ -119,7 +119,7 @@ describe("オペレーター", () => {
       expect(result.newMode).toBe("normal");
     });
 
-    it("ヤンク後のカーソルが範囲の先頭に移動する", () => {
+    it("moves cursor to the start of the range after yank", () => {
       const buffer = new TextBuffer("hello world");
       const range: MotionRange = {
         start: { line: 0, col: 6 },
@@ -139,12 +139,12 @@ describe("オペレーター", () => {
   });
 
   // ---------------------------------------------------
-  // executeOperatorOnRange: 文字単位の change
+  // executeOperatorOnRange: character-wise change
   // ---------------------------------------------------
-  describe("executeOperatorOnRange - 文字単位 change", () => {
-    it("範囲を削除してインサートモードに遷移する", () => {
+  describe("executeOperatorOnRange - character-wise change", () => {
+    it("deletes the range and transitions to insert mode", () => {
       const buffer = new TextBuffer("hello world");
-      // cw: w motion の end は次の単語の先頭 (col 6), inclusive: false
+      // cw: w motion's end is the start of the next word (col 6), inclusive: false
       const range: MotionRange = {
         start: { line: 0, col: 0 },
         end: { line: 0, col: 6 },
@@ -162,7 +162,7 @@ describe("オペレーター", () => {
       expect(result.newCursor.col).toBe(0);
     });
 
-    it("change のカーソルは削除範囲の先頭になる", () => {
+    it("cursor is at the start of the deleted range after change", () => {
       const buffer = new TextBuffer("hello world");
       const range: MotionRange = {
         start: { line: 0, col: 6 },
@@ -181,10 +181,10 @@ describe("オペレーター", () => {
   });
 
   // ---------------------------------------------------
-  // executeOperatorOnRange: 行単位操作
+  // executeOperatorOnRange: line-wise operations
   // ---------------------------------------------------
-  describe("executeOperatorOnRange - 行単位操作", () => {
-    it("行単位 delete で行全体を削除する", () => {
+  describe("executeOperatorOnRange - line-wise operations", () => {
+    it("deletes entire lines with line-wise delete", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const range: MotionRange = {
         start: { line: 0, col: 0 },
@@ -202,7 +202,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("line1\nline2\n");
     });
 
-    it("行単位 yank はバッファを変更しない", () => {
+    it("does not modify the buffer with line-wise yank", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const range: MotionRange = {
         start: { line: 0, col: 0 },
@@ -220,7 +220,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("line1\nline2\n");
     });
 
-    it("行単位 change で行を削除して空行を挿入しインサートモードに入る", () => {
+    it("deletes lines and inserts an empty line in insert mode with line-wise change", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const range: MotionRange = {
         start: { line: 1, col: 0 },
@@ -241,10 +241,10 @@ describe("オペレーター", () => {
   });
 
   // ---------------------------------------------------
-  // executeLineOperator（dd, yy, cc）
+  // executeLineOperator (dd, yy, cc)
   // ---------------------------------------------------
   describe("executeLineOperator", () => {
-    it("dd (count=1) で1行を削除する", () => {
+    it("deletes 1 line with dd (count=1)", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const result = executeLineOperator(
         "d",
@@ -256,7 +256,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("line2\n");
     });
 
-    it("2dd で2行を削除する", () => {
+    it("deletes 2 lines with 2dd", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const result = executeLineOperator(
         "d",
@@ -268,7 +268,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("line2\nline3\n");
     });
 
-    it("yy で1行をヤンクする", () => {
+    it("yanks 1 line with yy", () => {
       const buffer = new TextBuffer("line1\nline2");
       const result = executeLineOperator(
         "y",
@@ -280,7 +280,7 @@ describe("オペレーター", () => {
       expect(result.yankedText).toBe("line1\n");
     });
 
-    it("cc で行を変更する", () => {
+    it("changes a line with cc", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const result = executeLineOperator(
         "c",
@@ -294,10 +294,10 @@ describe("オペレーター", () => {
   });
 
   // ---------------------------------------------------
-  // エッジケース
+  // Edge cases
   // ---------------------------------------------------
-  describe("エッジケース", () => {
-    it("全行を削除するとバッファに空行が1行残る", () => {
+  describe("Edge cases", () => {
+    it("leaves one empty line in the buffer when deleting all lines", () => {
       const buffer = new TextBuffer("only line");
       const result = executeLineOperator(
         "d",
@@ -310,7 +310,7 @@ describe("オペレーター", () => {
       expect(result.newCursor.line).toBe(0);
     });
 
-    it("カウントがバッファの行数を超えてもクランプされる", () => {
+    it("clamps when count exceeds the buffer line count", () => {
       const buffer = new TextBuffer("line1\nline2");
       const result = executeLineOperator(
         "d",
@@ -318,12 +318,12 @@ describe("オペレーター", () => {
         100,
         buffer,
       );
-      // 全行削除される
+      // All lines deleted
       expect(buffer.getLineCount()).toBe(1);
       expect(buffer.getContent()).toBe("");
     });
 
-    it("空バッファに対して行単位 yank を実行する", () => {
+    it("executes line-wise yank on an empty buffer", () => {
       const buffer = new TextBuffer("");
       const result = executeLineOperator(
         "y",
@@ -335,7 +335,7 @@ describe("オペレーター", () => {
       expect(buffer.getContent()).toBe("");
     });
 
-    it("1行のバッファに対して文字単位 delete を実行する", () => {
+    it("executes character-wise delete on a single-line buffer", () => {
       const buffer = new TextBuffer("abc");
       const range: MotionRange = {
         start: { line: 0, col: 0 },

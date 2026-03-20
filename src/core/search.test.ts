@@ -1,8 +1,8 @@
 /**
  * search.test.ts
  *
- * バッファ内検索機能のテスト。
- * 前方検索、後方検索、ラップアラウンド、正規表現エラーなどを検証する。
+ * Tests for buffer search functionality.
+ * Verifies forward search, backward search, wrap-around, and regex error handling.
  */
 
 import { describe, it, expect } from "vitest";
@@ -10,15 +10,15 @@ import { searchInBuffer } from "./search";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("検索機能", () => {
+describe("Search functionality", () => {
   // ---------------------------------------------------
-  // 前方検索
+  // Forward search
   // ---------------------------------------------------
-  describe("前方検索", () => {
-    it("カーソルの次の位置から最初のマッチを見つける", () => {
+  describe("Forward search", () => {
+    it("finds the first match after the cursor position", () => {
       const buffer = new TextBuffer("hello world hello");
       const result = searchInBuffer(
         buffer,
@@ -29,7 +29,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 12 });
     });
 
-    it("次の行でマッチを見つける", () => {
+    it("finds a match on the next line", () => {
       const buffer = new TextBuffer("foo\nbar\nbaz");
       const result = searchInBuffer(
         buffer,
@@ -40,7 +40,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 2, col: 0 });
     });
 
-    it("ラップアラウンドして先頭からマッチを見つける", () => {
+    it("wraps around to find a match from the beginning", () => {
       const buffer = new TextBuffer("hello\nworld\nfoo");
       const result = searchInBuffer(
         buffer,
@@ -51,7 +51,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 0 });
     });
 
-    it("同じ行のカーソルより後ろでマッチする", () => {
+    it("finds a match after the cursor on the same line", () => {
       const buffer = new TextBuffer("foo bar foo");
       const result = searchInBuffer(
         buffer,
@@ -64,10 +64,10 @@ describe("検索機能", () => {
   });
 
   // ---------------------------------------------------
-  // 後方検索
+  // Backward search
   // ---------------------------------------------------
-  describe("後方検索", () => {
-    it("カーソルの前の位置から最も近いマッチを見つける", () => {
+  describe("Backward search", () => {
+    it("finds the closest match before the cursor position", () => {
       const buffer = new TextBuffer("hello world hello");
       const result = searchInBuffer(
         buffer,
@@ -78,7 +78,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 0 });
     });
 
-    it("前の行でマッチを見つける", () => {
+    it("finds a match on a previous line", () => {
       const buffer = new TextBuffer("foo\nbar\nbaz");
       const result = searchInBuffer(
         buffer,
@@ -89,7 +89,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 0 });
     });
 
-    it("ラップアラウンドして末尾からマッチを見つける", () => {
+    it("wraps around to find a match from the end", () => {
       const buffer = new TextBuffer("foo\nbar\nhello");
       const result = searchInBuffer(
         buffer,
@@ -102,10 +102,10 @@ describe("検索機能", () => {
   });
 
   // ---------------------------------------------------
-  // マッチなし
+  // No match
   // ---------------------------------------------------
-  describe("マッチなし", () => {
-    it("パターンが見つからない場合 null を返す", () => {
+  describe("No match", () => {
+    it("returns null when the pattern is not found", () => {
       const buffer = new TextBuffer("hello world");
       const result = searchInBuffer(
         buffer,
@@ -116,7 +116,7 @@ describe("検索機能", () => {
       expect(result).toBeNull();
     });
 
-    it("後方検索でもマッチなしは null を返す", () => {
+    it("returns null for backward search when no match is found", () => {
       const buffer = new TextBuffer("hello world");
       const result = searchInBuffer(
         buffer,
@@ -129,10 +129,10 @@ describe("検索機能", () => {
   });
 
   // ---------------------------------------------------
-  // 不正な正規表現
+  // Invalid regex
   // ---------------------------------------------------
-  describe("不正な正規表現", () => {
-    it("不正な正規表現パターンは null を返す", () => {
+  describe("Invalid regex", () => {
+    it("returns null for an invalid regex pattern", () => {
       const buffer = new TextBuffer("hello world");
       const result = searchInBuffer(
         buffer,
@@ -145,10 +145,10 @@ describe("検索機能", () => {
   });
 
   // ---------------------------------------------------
-  // 同一行上の複数マッチ
+  // Multiple matches on the same line
   // ---------------------------------------------------
-  describe("同一行上の複数マッチ", () => {
-    it("前方検索で同一行の最初のマッチを返す", () => {
+  describe("Multiple matches on the same line", () => {
+    it("returns the first match on the same line for forward search", () => {
       const buffer = new TextBuffer("aaa bbb aaa bbb aaa");
       const result = searchInBuffer(
         buffer,
@@ -159,7 +159,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 4 });
     });
 
-    it("後方検索で同一行の最もカーソルに近いマッチを返す", () => {
+    it("returns the closest match to the cursor on the same line for backward search", () => {
       const buffer = new TextBuffer("aaa bbb aaa bbb aaa");
       const result = searchInBuffer(
         buffer,
@@ -172,10 +172,10 @@ describe("検索機能", () => {
   });
 
   // ---------------------------------------------------
-  // 正規表現パターン
+  // Regex patterns
   // ---------------------------------------------------
-  describe("正規表現パターン", () => {
-    it("正規表現パターンでマッチする", () => {
+  describe("Regex patterns", () => {
+    it("matches using a regex pattern", () => {
       const buffer = new TextBuffer("abc 123 def 456");
       const result = searchInBuffer(
         buffer,
@@ -186,7 +186,7 @@ describe("検索機能", () => {
       expect(result).toEqual({ line: 0, col: 4 });
     });
 
-    it("複数行にまたがる検索で正規表現が機能する", () => {
+    it("regex works across multiple lines", () => {
       const buffer = new TextBuffer("foo\nbar123\nbaz");
       const result = searchInBuffer(
         buffer,

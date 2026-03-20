@@ -1,19 +1,19 @@
 /**
  * command-line-mode.ts
  *
- * コマンドラインモードの処理。
- * :, /, ? で開始されるコマンド入力を処理する。
+ * Command-line mode processing.
+ * Handles command input initiated by :, /, or ?.
  *
- * 対応コマンド:
- * - :w → 保存（onSave コールバック呼び出し）
- * - /pattern → 前方検索
- * - ?pattern → 後方検索
+ * Supported commands:
+ * - :w -> Save (invokes onSave callback)
+ * - /pattern -> Forward search
+ * - ?pattern -> Backward search
  *
  * TODO:
- * - :q → 終了
- * - :wq → 保存して終了
- * - :{number} → 指定行へジャンプ
- * - :s/old/new/ → 置換
+ * - :q -> Quit
+ * - :wq -> Save and quit
+ * - :{number} -> Jump to specified line
+ * - :s/old/new/ -> Substitution
  */
 
 import type { VimContext, VimAction } from "../types";
@@ -22,19 +22,19 @@ import type { KeystrokeResult } from "./vim-state";
 import { searchInBuffer } from "./search";
 
 /**
- * コマンドラインモードのメインハンドラ。
+ * Main handler for command-line mode.
  */
 export function processCommandLineMode(
   key: string,
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult {
-  // --- Escape → ノーマルモードへ ---
+  // --- Escape -> return to normal mode ---
   if (key === "Escape") {
     return exitCommandLine(ctx);
   }
 
-  // --- Enter → コマンド実行 ---
+  // --- Enter -> execute command ---
   if (key === "Enter") {
     return executeCommand(ctx, buffer);
   }
@@ -44,7 +44,7 @@ export function processCommandLineMode(
     return handleBackspace(ctx);
   }
 
-  // --- 文字入力 ---
+  // --- Character input ---
   if (key.length === 1) {
     return appendChar(key, ctx);
   }
@@ -53,7 +53,7 @@ export function processCommandLineMode(
 }
 
 /**
- * コマンドラインモードを抜ける。
+ * Exit command-line mode.
  */
 function exitCommandLine(ctx: VimContext): KeystrokeResult {
   return {
@@ -69,8 +69,8 @@ function exitCommandLine(ctx: VimContext): KeystrokeResult {
 }
 
 /**
- * Enter: コマンドを実行する。
- * commandType に応じて実行内容が変わる。
+ * Enter: Execute the command.
+ * Execution behavior depends on the commandType.
  */
 function executeCommand(
   ctx: VimContext,
@@ -90,7 +90,7 @@ function executeCommand(
 }
 
 /**
- * Ex コマンド（: で始まるコマンド）の実行。
+ * Execute an Ex command (a command starting with :).
  */
 function executeExCommand(
   cmd: string,
@@ -101,15 +101,15 @@ function executeExCommand(
 
   switch (cmd.trim()) {
     case "w":
-      // :w → 保存
+      // :w -> save
       actions.push({ type: "save", content: buffer.getContent() });
       break;
 
-    // TODO: 他のexコマンドを追加
+    // TODO: Add other ex commands
     // case "q": ...
     // case "wq": ...
     default: {
-      // 数値の場合は行ジャンプ
+      // If numeric, jump to that line
       const lineNum = Number.parseInt(cmd.trim(), 10);
       if (!Number.isNaN(lineNum)) {
         const targetLine = Math.max(
@@ -149,7 +149,7 @@ function executeExCommand(
 }
 
 /**
- * 検索コマンド（/ または ?）の実行。
+ * Execute a search command (/ or ?).
  */
 function executeSearch(
   pattern: string,
@@ -184,7 +184,7 @@ function executeSearch(
     };
   }
 
-  // パターンが見つからなかった場合
+  // Pattern not found
   return {
     newCtx: {
       ...ctx,
@@ -203,8 +203,8 @@ function executeSearch(
 }
 
 /**
- * Backspace: コマンドバッファから1文字削除。
- * バッファが空の場合はコマンドラインモードを抜ける。
+ * Backspace: Delete one character from the command buffer.
+ * If the buffer is empty, exit command-line mode.
  */
 function handleBackspace(ctx: VimContext): KeystrokeResult {
   if (ctx.commandBuffer.length === 0) {
@@ -223,7 +223,7 @@ function handleBackspace(ctx: VimContext): KeystrokeResult {
 }
 
 /**
- * コマンドバッファに1文字追加。
+ * Append one character to the command buffer.
  */
 function appendChar(key: string, ctx: VimContext): KeystrokeResult {
   const newBuffer = ctx.commandBuffer + key;

@@ -1,8 +1,8 @@
 /**
  * command-line-mode.test.ts
  *
- * コマンドラインモードの統合テスト。
- * : コマンド、/ 前方検索、? 後方検索、Backspace、Escape を検証する。
+ * Integration tests for command-line mode.
+ * Verifies : commands, / forward search, ? backward search, Backspace, and Escape.
  */
 
 import { describe, it, expect } from "vitest";
@@ -11,10 +11,10 @@ import { processKeystroke, createInitialContext } from "./vim-state";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// ヘルパー関数
+// Helper functions
 // =====================
 
-/** コマンドラインモードのテスト用VimContextを生成する */
+/** Create a VimContext in command-line mode for testing */
 function createCommandLineContext(
   cursor: CursorPosition,
   commandType: ":" | "/" | "?",
@@ -32,7 +32,7 @@ function createCommandLineContext(
   };
 }
 
-/** 複数キーを順番に処理し、最終的な状態を返す */
+/** Process multiple keys in sequence and return the final state */
 function pressKeys(
   keys: string[],
   ctx: VimContext,
@@ -49,15 +49,15 @@ function pressKeys(
 }
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("コマンドラインモード", () => {
+describe("Command-line mode", () => {
   // ---------------------------------------------------
-  // :w（保存）
+  // :w (save)
   // ---------------------------------------------------
-  describe(":w コマンド（保存）", () => {
-    it(":w で save アクションが発行される", () => {
+  describe(":w command (save)", () => {
+    it("issues a save action with :w", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":");
       const { ctx: result, allActions } = pressKeys(
@@ -72,7 +72,7 @@ describe("コマンドラインモード", () => {
       });
     });
 
-    it(":w の後にコマンドバッファがクリアされる", () => {
+    it("clears the command buffer after :w", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":");
       const { ctx: result } = pressKeys(["w", "Enter"], ctx, buffer);
@@ -82,10 +82,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // /pattern（前方検索）
+  // /pattern (forward search)
   // ---------------------------------------------------
-  describe("/pattern（前方検索）", () => {
-    it("/foo で 'foo' を前方検索し、マッチ位置にカーソルを移動する", () => {
+  describe("/pattern (forward search)", () => {
+    it("searches forward for 'foo' and moves the cursor to the match position with /foo", () => {
       const buffer = new TextBuffer("hello foo world");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, "/");
       const { ctx: result } = pressKeys(
@@ -98,7 +98,7 @@ describe("コマンドラインモード", () => {
       expect(result.lastSearch).toBe("foo");
     });
 
-    it("マッチしない場合ステータスメッセージを表示する", () => {
+    it("displays a status message when there is no match", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, "/");
       const { ctx: result, allActions } = pressKeys(
@@ -115,7 +115,7 @@ describe("コマンドラインモード", () => {
       });
     });
 
-    it("空パターンで Enter を押すとコマンドラインを抜けるだけ", () => {
+    it("just exits command-line mode when pressing Enter with an empty pattern", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, "/");
       const { ctx: result } = pressKeys(["Enter"], ctx, buffer);
@@ -124,10 +124,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // ?pattern（後方検索）
+  // ?pattern (backward search)
   // ---------------------------------------------------
-  describe("?pattern（後方検索）", () => {
-    it("?foo で 'foo' を後方検索する", () => {
+  describe("?pattern (backward search)", () => {
+    it("searches backward for 'foo' with ?foo", () => {
       const buffer = new TextBuffer("foo hello foo");
       const ctx = createCommandLineContext({ line: 0, col: 10 }, "?");
       const { ctx: result } = pressKeys(
@@ -140,7 +140,7 @@ describe("コマンドラインモード", () => {
       expect(result.searchDirection).toBe("backward");
     });
 
-    it("後方検索でマッチしない場合メッセージを表示する", () => {
+    it("displays a message when backward search finds no match", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createCommandLineContext({ line: 0, col: 5 }, "?");
       const { ctx: result } = pressKeys(
@@ -153,10 +153,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // Backspace（コマンドバッファ編集）
+  // Backspace (command buffer editing)
   // ---------------------------------------------------
-  describe("Backspace（コマンドバッファ編集）", () => {
-    it("Backspace でコマンドバッファの最後の文字を削除する", () => {
+  describe("Backspace (command buffer editing)", () => {
+    it("deletes the last character from the command buffer with Backspace", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":", {
         commandBuffer: "wq",
@@ -167,7 +167,7 @@ describe("コマンドラインモード", () => {
       expect(result.statusMessage).toBe(":w");
     });
 
-    it("コマンドバッファが空のとき Backspace でコマンドラインモードを抜ける", () => {
+    it("exits command-line mode when pressing Backspace with an empty command buffer", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":", {
         commandBuffer: "",
@@ -179,10 +179,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // Escape（コマンドラインモード終了）
+  // Escape (exit command-line mode)
   // ---------------------------------------------------
-  describe("Escape（コマンドラインモード終了）", () => {
-    it("Escape でコマンドラインモードを抜けてノーマルモードに戻る", () => {
+  describe("Escape (exit command-line mode)", () => {
+    it("exits command-line mode and returns to normal mode with Escape", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":", {
         commandBuffer: "some",
@@ -193,7 +193,7 @@ describe("コマンドラインモード", () => {
       expect(result.commandType).toBeNull();
     });
 
-    it("検索モードでも Escape で抜けられる", () => {
+    it("can exit search mode with Escape as well", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, "/", {
         commandBuffer: "pattern",
@@ -204,10 +204,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // :{number}（行ジャンプ）
+  // :{number} (line jump)
   // ---------------------------------------------------
-  describe(":{number}（行ジャンプ）", () => {
-    it(":3 で3行目（0-basedで2行目）にジャンプする", () => {
+  describe(":{number} (line jump)", () => {
+    it("jumps to line 3 (0-based line 2) with :3", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":");
       const { ctx: result, allActions } = pressKeys(
@@ -223,14 +223,14 @@ describe("コマンドラインモード", () => {
       });
     });
 
-    it(":1 で1行目にジャンプする", () => {
+    it("jumps to line 1 with :1", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createCommandLineContext({ line: 2, col: 3 }, ":");
       const { ctx: result } = pressKeys(["1", "Enter"], ctx, buffer);
       expect(result.cursor).toEqual({ line: 0, col: 0 });
     });
 
-    it("バッファの行数を超える数値はクランプされる", () => {
+    it("clamps when the number exceeds the buffer line count", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":");
       const { ctx: result } = pressKeys(
@@ -238,10 +238,10 @@ describe("コマンドラインモード", () => {
         ctx,
         buffer,
       );
-      expect(result.cursor.line).toBe(2); // 最終行
+      expect(result.cursor.line).toBe(2); // last line
     });
 
-    it(":0 は1行目にクランプされる", () => {
+    it("clamps :0 to line 1", () => {
       const buffer = new TextBuffer("line1\nline2");
       const ctx = createCommandLineContext({ line: 1, col: 0 }, ":");
       const { ctx: result } = pressKeys(["0", "Enter"], ctx, buffer);
@@ -250,10 +250,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // 文字入力
+  // Character input
   // ---------------------------------------------------
-  describe("文字入力", () => {
-    it("文字入力でコマンドバッファに追加される", () => {
+  describe("Character input", () => {
+    it("appends characters to the command buffer", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":");
       const { ctx: result } = pressKeys(["h", "e", "l", "p"], ctx, buffer);
@@ -261,7 +261,7 @@ describe("コマンドラインモード", () => {
       expect(result.statusMessage).toBe(":help");
     });
 
-    it("特殊キー（長いキー名）は無視される", () => {
+    it("ignores special keys (long key names)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createCommandLineContext({ line: 0, col: 0 }, ":", {
         commandBuffer: "test",
@@ -272,10 +272,10 @@ describe("コマンドラインモード", () => {
   });
 
   // ---------------------------------------------------
-  // 統合テスト：ノーマルモードから検索して戻る
+  // Integration test: search from normal mode and return
   // ---------------------------------------------------
-  describe("統合テスト", () => {
-    it("ノーマルモードから /hello と入力して検索する一連の流れ", () => {
+  describe("Integration tests", () => {
+    it("searches by typing /hello from normal mode end-to-end", () => {
       const buffer = new TextBuffer("foo\nbar\nhello\nworld");
       const ctx = createInitialContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(
@@ -288,7 +288,7 @@ describe("コマンドラインモード", () => {
       expect(result.lastSearch).toBe("hello");
     });
 
-    it("ノーマルモードから :5 と入力して5行目にジャンプする", () => {
+    it("jumps to line 5 by typing :5 from normal mode", () => {
       const lines = Array.from({ length: 10 }, (_, i) => `line${i + 1}`).join(
         "\n",
       );

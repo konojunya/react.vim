@@ -1,15 +1,15 @@
 /**
  * useVimEngine.ts
  *
- * Vimエンジンのメインフック。
- * テキストバッファ、Vim状態、キーボードイベント処理を統合する。
+ * Main hook for the Vim engine.
+ * Integrates the text buffer, Vim state, and keyboard event handling.
  *
- * このフックがShikiVimコンポーネントの全ロジックを管理する:
- * - TextBuffer の管理
- * - VimContext の状態管理
- * - キーボードイベントのハンドリング
- * - コールバック（onChange, onYank, onSave）の呼び出し
- * - スクロール処理
+ * This hook manages all logic for the ShikiVim component:
+ * - TextBuffer management
+ * - VimContext state management
+ * - Keyboard event handling
+ * - Callback invocation (onChange, onYank, onSave)
+ * - Scroll handling
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -21,49 +21,49 @@ import {
   processKeystroke,
 } from "../core/vim-state";
 
-/** useVimEngine のオプション */
+/** Options for useVimEngine */
 export interface VimEngineOptions {
-  /** 初期コンテンツ */
+  /** Initial content */
   content: string;
-  /** 初期カーソル位置（"1:1" 形式、1-based） */
+  /** Initial cursor position ("1:1" format, 1-based) */
   cursorPosition?: string;
-  /** 読み取り専用モード */
+  /** Read-only mode */
   readOnly?: boolean;
-  /** コンテンツ変更時のコールバック */
+  /** Callback when content changes */
   onChange?: (content: string) => void;
-  /** ヤンク時のコールバック */
+  /** Callback when text is yanked */
   onYank?: (text: string) => void;
-  /** 保存時のコールバック */
+  /** Callback when saving */
   onSave?: (content: string) => void;
-  /** モード変更時のコールバック */
+  /** Callback when mode changes */
   onModeChange?: (mode: VimMode) => void;
 }
 
-/** useVimEngine の返り値 */
+/** Return value of useVimEngine */
 export interface VimEngineState {
-  /** 現在のコンテンツ */
+  /** Current content */
   content: string;
-  /** 現在のカーソル位置 */
+  /** Current cursor position */
   cursor: CursorPosition;
-  /** 現在のVimモード */
+  /** Current Vim mode */
   mode: VimMode;
-  /** ステータスバーに表示するメッセージ */
+  /** Message displayed in the status bar */
   statusMessage: string;
-  /** ビジュアルモードの選択アンカー */
+  /** Selection anchor for visual mode */
   visualAnchor: CursorPosition | null;
-  /** コマンドラインの入力バッファ */
+  /** Input buffer for the command line */
   commandLine: string;
-  /** キーボードイベントハンドラ */
+  /** Keyboard event handler */
   handleKeyDown: (e: React.KeyboardEvent) => void;
-  /** スクロールイベントハンドラ（半ページスクロール用） */
+  /** Scroll event handler (for half-page scrolling) */
   handleScroll: (direction: "up" | "down", visibleLines: number) => void;
 }
 
 /**
- * Vimエンジンのメインフック。
+ * Main hook for the Vim engine.
  *
- * TextBufferはrefで管理（ミュータブル、レンダリングとは独立）。
- * 表示に関わる状態（カーソル、モード、コンテンツ）はstateで管理。
+ * TextBuffer is managed via ref (mutable, independent of rendering).
+ * Display-related state (cursor, mode, content) is managed via state.
  */
 export function useVimEngine(options: VimEngineOptions): VimEngineState {
   const {
@@ -76,15 +76,15 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
     onModeChange,
   } = options;
 
-  // TextBuffer は ref で管理（頻繁なミューテーションがあるため）
+  // TextBuffer is managed via ref (due to frequent mutations)
   const bufferRef = useRef<TextBuffer>(new TextBuffer(initialContent));
 
-  // VimContext も ref で管理（パーサーの中間状態はレンダリング不要）
+  // VimContext is also managed via ref (parser intermediate state does not need rendering)
   const ctxRef = useRef<VimContext>(
     createInitialContext(parseCursorPosition(cursorPosition)),
   );
 
-  // 表示に関わる状態
+  // Display-related state
   const [content, setContent] = useState(initialContent);
   const [cursor, setCursor] = useState<CursorPosition>(
     parseCursorPosition(cursorPosition),
@@ -97,7 +97,7 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
   const [commandLine, setCommandLine] = useState("");
 
   /**
-   * アクションリストを処理し、Reactの状態とコールバックを更新する。
+   * Process the action list and update React state and callbacks.
    */
   const processActions = useCallback(
     (actions: VimAction[], newCtx: VimContext) => {
@@ -126,11 +126,11 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
             break;
 
           case "status-message":
-            // statusMessage は ctx から設定される
+            // statusMessage is set from ctx
             break;
 
           case "scroll":
-            // スクロールはコンポーネント側で処理
+            // Scroll is handled on the component side
             break;
 
           case "noop":
@@ -138,7 +138,7 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
         }
       }
 
-      // VimContext から常に同期する状態
+      // State that is always synced from VimContext
       setStatusMessage(newCtx.statusMessage);
       setVisualAnchor(newCtx.visualAnchor);
       setCommandLine(
@@ -151,22 +151,22 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
   );
 
   /**
-   * キーボードイベントハンドラ。
-   * KeyboardEvent を受け取り、Vimエンジンに渡す。
+   * Keyboard event handler.
+   * Receives a KeyboardEvent and passes it to the Vim engine.
    */
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // IME入力中は無視
+      // Ignore during IME composition
       if (e.nativeEvent.isComposing) return;
 
-      // ブラウザのデフォルト動作を防ぐ
-      // Ctrl-R（リロード）、Ctrl-D（ブックマーク）などの衝突を防止
+      // Prevent browser default behavior
+      // Avoid conflicts with Ctrl-R (reload), Ctrl-D (bookmark), etc.
       const shouldPrevent = shouldPreventDefault(e);
       if (shouldPrevent) {
         e.preventDefault();
       }
 
-      // Vimエンジンにキーストロークを渡す（readOnlyフラグで書き込み操作をブロック）
+      // Pass the keystroke to the Vim engine (write operations are blocked by the readOnly flag)
       const { newCtx, actions } = processKeystroke(
         e.key,
         ctxRef.current,
@@ -175,18 +175,18 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
         readOnly,
       );
 
-      // コンテキストを更新
+      // Update context
       ctxRef.current = newCtx;
 
-      // アクションを処理
+      // Process actions
       processActions(actions, newCtx);
     },
     [readOnly, processActions],
   );
 
   /**
-   * スクロールハンドラ（Ctrl-U/D 用）。
-   * コンポーネントから可視行数を受け取り、カーソルとスクロール位置を更新する。
+   * Scroll handler (for Ctrl-U/D).
+   * Receives the number of visible lines from the component and updates the cursor and scroll position.
    */
   const handleScroll = useCallback(
     (direction: "up" | "down", visibleLines: number) => {
@@ -224,28 +224,28 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
 }
 
 /**
- * ブラウザのデフォルト動作を防ぐべきかを判定する。
+ * Determine whether to prevent the browser's default behavior.
  *
- * Vimエディタとして機能するためには、以下のキーのデフォルト動作を防ぐ必要がある:
- * - Ctrl-R（ブラウザリロード → Vimのリドゥ）
- * - Ctrl-D（ブックマーク追加 → Vimの半ページ下スクロール）
- * - Ctrl-U（ソース表示 → Vimの半ページ上スクロール）
- * - Tab（フォーカス移動 → インデント）
- * - Escape（ダイアログ閉じ → モード切替）
- * - /（クイックサーチ → Vim検索）
- * - 通常の文字キー（入力ではなくVimコマンドとして処理）
+ * To function as a Vim editor, the default behavior of the following keys must be prevented:
+ * - Ctrl-R (browser reload -> Vim redo)
+ * - Ctrl-D (add bookmark -> Vim half-page scroll down)
+ * - Ctrl-U (view source -> Vim half-page scroll up)
+ * - Tab (focus navigation -> indent)
+ * - Escape (close dialog -> mode switch)
+ * - / (quick search -> Vim search)
+ * - Regular character keys (processed as Vim commands instead of input)
  */
 function shouldPreventDefault(e: React.KeyboardEvent): boolean {
-  // Ctrlキーコンビネーション
+  // Ctrl key combinations
   if (e.ctrlKey) {
     const ctrlKeys = ["r", "d", "u"];
     if (ctrlKeys.includes(e.key)) return true;
   }
 
-  // 特殊キー
+  // Special keys
   if (e.key === "Tab" || e.key === "Escape") return true;
 
-  // 検索キー（ブラウザのクイックサーチを防ぐ）
+  // Search key (prevent browser quick search)
   if (e.key === "/") return true;
 
   return false;
