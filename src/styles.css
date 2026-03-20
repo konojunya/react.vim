@@ -86,6 +86,12 @@
   background-color: var(--sv-selection-bg, rgba(100, 150, 255, 0.3));
 }
 
+/* Search match highlight */
+.sv-search-match {
+  background-color: var(--sv-search-match-bg, rgba(255, 200, 50, 0.35));
+  border-radius: 2px;
+}
+
 /* =====================
    Cursor
    ===================== */

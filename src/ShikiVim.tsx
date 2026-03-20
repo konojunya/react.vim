@@ -112,6 +112,32 @@ export default function ShikiVim({
     return col;
   }, [engine.content, engine.cursor.line, engine.cursor.col]);
 
+  // --- Calculate search match positions per line ---
+  // Only highlights while actively typing a search (/ or ?).
+  // Clears when returning to normal mode.
+  const searchMatchesByLine = useMemo(() => {
+    if (!engine.commandLine || !(engine.commandLine.startsWith("/") || engine.commandLine.startsWith("?"))) {
+      return {};
+    }
+    const pattern = engine.commandLine.slice(1);
+    if (!pattern) return {};
+    let regex: RegExp;
+    try {
+      regex = new RegExp(pattern, "gi");
+    } catch {
+      return {};
+    }
+    const lines = engine.content.split("\n");
+    const result: Record<number, [number, number][]> = {};
+    for (let i = 0; i < lines.length; i++) {
+      const matches = [...lines[i].matchAll(regex)];
+      if (matches.length > 0) {
+        result[i] = matches.map((m) => [m.index!, m.index! + m[0].length]);
+      }
+    }
+    return result;
+  }, [engine.content, engine.commandLine]);
+
   // --- Calculate visual selection range ---
   const selectionInfo = useMemo(() => {
     return computeSelectionInfo(
@@ -200,6 +226,7 @@ export default function ShikiVim({
             isSelected={selectionInfo.isLineSelected(lineIndex)}
             selectionStartCol={selectionInfo.getSelectionStartCol(lineIndex)}
             selectionEndCol={selectionInfo.getSelectionEndCol(lineIndex)}
+            searchMatches={searchMatchesByLine[lineIndex]}
           />
         ))}
       </div>

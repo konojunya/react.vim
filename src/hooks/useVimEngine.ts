@@ -61,6 +61,8 @@ export interface VimEngineState {
   commandLine: string;
   /** Vim options set via :set commands */
   options: Record<string, boolean>;
+  /** Last search pattern (for highlighting matches) */
+  lastSearch: string;
   /** Keyboard event handler */
   handleKeyDown: (e: React.KeyboardEvent) => void;
   /** Scroll event handler (for half-page scrolling) */
@@ -237,6 +239,7 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
     visualAnchor,
     commandLine,
     options: vimOptions,
+    lastSearch: ctxRef.current.lastSearch,
     handleKeyDown,
     handleScroll,
   };
