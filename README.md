@@ -88,6 +88,7 @@ function App() {
 | `shikiOptions` | `Record<string, unknown>` | — | Additional options passed to Shiki's `codeToTokens` |
 | `cursorPosition` | `string` | `"1:1"` | Initial cursor position (`"line:col"`, 1-based) |
 | `readOnly` | `boolean` | `false` | Disable editing (motions still work) |
+| `autoFocus` | `boolean` | `false` | Focus the editor on mount |
 | `showLineNumbers` | `boolean` | `true` | Show line number gutter |
 | `className` | `string` | — | Additional class for the container |
 
@@ -99,6 +100,7 @@ function App() {
 | `onYank` | `(text: string) => void` | Text yanked (`yy`, `dw`, etc.) |
 | `onSave` | `(content: string) => void` | `:w` command |
 | `onModeChange` | `(mode: VimMode) => void` | Mode transition |
+| `onAction` | `(action: VimAction, key: string) => void` | Every vim engine action (for debugging / logging) |
 
 ## Keybindings
 

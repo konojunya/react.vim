@@ -541,6 +541,7 @@ export default function App() {
           theme={theme}
           onChange={setCode}
           onAction={handleAction}
+          autoFocus
           className="debug-editor"
         />
       </div>

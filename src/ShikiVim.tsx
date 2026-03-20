@@ -53,10 +53,15 @@ export default function ShikiVim({
   onAction,
   className,
   readOnly = false,
+  autoFocus = false,
   showLineNumbers = true,
 }: ShikiVimProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const codeAreaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (autoFocus) containerRef.current?.focus();
+  }, [autoFocus]);
 
   // --- Vim engine ---
   const engine = useVimEngine({

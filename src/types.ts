@@ -108,6 +108,8 @@ export interface ShikiVimProps {
   className?: string;
   /** Whether the editor is read-only */
   readOnly?: boolean;
+  /** Whether the editor should be focused on mount */
+  autoFocus?: boolean;
   /** Whether to show line numbers. Default: true */
   showLineNumbers?: boolean;
 }
