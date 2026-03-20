@@ -129,6 +129,7 @@ export function resetContext(ctx: VimContext): VimContext {
     count: 0,
     operator: null,
     charCommand: null,
+    textObjectModifier: null,
     statusMessage: "",
   };
 }

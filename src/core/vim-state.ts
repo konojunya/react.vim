@@ -53,6 +53,7 @@ export function createInitialContext(
     searchDirection: "forward",
     charCommand: null,
     lastCharSearch: null,
+    textObjectModifier: null,
     statusMessage: "",
     indentStyle: opts?.indentStyle ?? "space",
     indentWidth: opts?.indentWidth ?? 2,

@@ -28,6 +28,7 @@ import { handleCtrlKey } from "./ctrl-keys";
 import { resolveMotion } from "./motion-resolver";
 import { executeOperatorOnRange } from "./operators";
 import { motionGG } from "./motions";
+import { resolveTextObject } from "./text-objects";
 
 /**
  * Main handler for visual mode.
@@ -47,6 +48,28 @@ export function processVisualMode(
   // --- g-pending ---
   if (ctx.phase === "g-pending") {
     return handleGPendingInVisual(key, ctx, buffer);
+  }
+
+  // --- Text object pending (viw, va", etc.) ---
+  if (ctx.phase === "text-object-pending" && ctx.textObjectModifier) {
+    const range = resolveTextObject(ctx.textObjectModifier, key, ctx.cursor, buffer);
+    if (range) {
+      return {
+        newCtx: {
+          ...ctx,
+          phase: "idle",
+          textObjectModifier: null,
+          visualAnchor: range.start,
+          cursor: range.end,
+          count: 0,
+        },
+        actions: [{ type: "cursor-move", position: range.end }],
+      };
+    }
+    return {
+      newCtx: { ...ctx, phase: "idle", textObjectModifier: null, count: 0 },
+      actions: [],
+    };
   }
 
   // --- Ctrl key ---
@@ -81,6 +104,18 @@ export function processVisualMode(
   if (key === "g") {
     return {
       newCtx: { ...ctx, phase: "g-pending" },
+      actions: [],
+    };
+  }
+
+  // --- Text object entry (viw, va", etc.) ---
+  if (key === "i" || key === "a") {
+    return {
+      newCtx: {
+        ...ctx,
+        phase: "text-object-pending",
+        textObjectModifier: key,
+      },
       actions: [],
     };
   }

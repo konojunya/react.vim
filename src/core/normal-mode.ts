@@ -42,6 +42,7 @@ import {
   motionTCharBack,
 } from "./motions";
 import { searchInBuffer } from "./search";
+import { resolveTextObject } from "./text-objects";
 
 /**
  * Main handler for normal mode.
@@ -57,6 +58,11 @@ export function processNormalMode(
   // --- g prefix pending ---
   if (ctx.phase === "g-pending") {
     return handleGPending(key, ctx, buffer);
+  }
+
+  // --- Text object pending (i/a + object key) ---
+  if (ctx.phase === "text-object-pending") {
+    return handleTextObjectPending(key, ctx, buffer);
   }
 
   // --- Character pending (f, F, t, T, r) ---
@@ -210,6 +216,51 @@ export function processNormalMode(
  * Key processing after g prefix.
  * gg -> move to the beginning of the file
  */
+/**
+ * Key processing during text-object-pending state.
+ * Receives the object key (w, W, ", ', (, {, [, etc.) and executes the operator.
+ */
+function handleTextObjectPending(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  const modifier = ctx.textObjectModifier!;
+  const range = resolveTextObject(modifier, key, ctx.cursor, buffer);
+
+  if (!range) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  // If in operator-pending, execute the operator on the text object range
+  if (ctx.operator) {
+    buffer.saveUndoPoint(ctx.cursor);
+    const result = executeOperatorOnRange(ctx.operator, range, buffer, ctx.cursor);
+
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        mode: result.newMode,
+        cursor: result.newCursor,
+        register: result.yankedText,
+        statusMessage: result.newMode === "insert"
+          ? "-- INSERT --"
+          : result.statusMessage || "",
+      },
+      actions: [
+        ...result.actions,
+        { type: "cursor-move", position: result.newCursor },
+        ...(result.newMode !== ctx.mode
+          ? [{ type: "mode-change" as const, mode: result.newMode }]
+          : []),
+      ],
+    };
+  }
+
+  // No operator (shouldn't happen in normal mode, but handle gracefully)
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
 function handleGPending(
   key: string,
   ctx: VimContext,
@@ -304,6 +355,18 @@ function handleOperatorPending(
   if (isCharCommand(key) && key !== "r") {
     return {
       newCtx: { ...ctx, phase: "char-pending", charCommand: key },
+      actions: [],
+    };
+  }
+
+  // Text object (e.g., diw, ciw, yaw)
+  if (key === "i" || key === "a") {
+    return {
+      newCtx: {
+        ...ctx,
+        phase: "text-object-pending",
+        textObjectModifier: key,
+      },
       actions: [],
     };
   }

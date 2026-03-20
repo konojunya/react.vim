@@ -26,7 +26,8 @@ export type CommandPhase =
   | "idle"
   | "operator-pending"
   | "char-pending"
-  | "g-pending";
+  | "g-pending"
+  | "text-object-pending";
 
 /**
  * Vim operators
@@ -56,6 +57,8 @@ export interface VimContext {
   charCommand: CharCommand | null;
   /** Last f/F/t/T command and character for ; and , repeat */
   lastCharSearch: { command: "f" | "F" | "t" | "T"; char: string } | null;
+  /** Text object modifier: "i" (inner) or "a" (around) */
+  textObjectModifier: "i" | "a" | null;
   statusMessage: string;
   indentStyle: "space" | "tab";
   indentWidth: number;
