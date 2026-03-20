@@ -17,6 +17,8 @@ import type { CursorPosition, VimMode } from "../types";
 export interface CursorProps {
   /** Cursor position (0-based) */
   position: CursorPosition;
+  /** Visual column (accounting for tab width) */
+  visualCol: number;
   /** Current Vim mode */
   mode: VimMode;
   /** Whether line numbers are displayed */
@@ -35,6 +37,7 @@ const BLINK_RESTART_DELAY = 500;
 
 export function Cursor({
   position,
+  visualCol,
   mode,
   showLineNumbers,
   gutterWidth,
@@ -63,7 +66,7 @@ export function Cursor({
       style={{
         // Set cursor position via CSS variables
         // ch unit: based on the width of "0" in a monospace font
-        ["--cursor-col" as string]: position.col + gutterOffset,
+        ["--cursor-col" as string]: visualCol + gutterOffset,
         ["--cursor-line" as string]: position.line,
         animation: blinking ? undefined : "none",
         opacity: blinking ? undefined : 1,
