@@ -47,7 +47,7 @@ export function Cursor({
 
   // Pause blink while cursor is moving, resume after idle
   const [blinking, setBlinking] = useState(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
     setBlinking(false);
