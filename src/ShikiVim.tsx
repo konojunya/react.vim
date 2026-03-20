@@ -330,8 +330,10 @@ function computeSelectionInfo(
     return {
       isLineSelected: (lineIndex) =>
         lineIndex >= startLine && lineIndex <= endLine,
-      getSelectionStartCol: () => blockStartCol,
-      getSelectionEndCol: () => blockEndCol,
+      getSelectionStartCol: (lineIndex) =>
+        lineIndex >= startLine && lineIndex <= endLine ? blockStartCol : undefined,
+      getSelectionEndCol: (lineIndex) =>
+        lineIndex >= startLine && lineIndex <= endLine ? blockEndCol : undefined,
     };
   }
 
