@@ -212,14 +212,43 @@ Contributions welcome for any of these:
 
 ## Contributing
 
+### Setup
+
 ```bash
 bun install
-bun run dev         # Watch mode
-bun run test        # Run tests (360 cases)
+bun run dev         # Watch mode (builds the library)
+bun run test        # Run tests
 bun run typecheck   # Type check
 bun run lint        # oxlint
 bun run fmt         # oxfmt
 ```
+
+### Debug App
+
+A local debug app lives in `debug/`. It references the shiki-vim source directly via Vite aliases — no build step needed for live feedback.
+
+```bash
+cd debug
+bun install
+bun run dev
+```
+
+The debug app includes:
+
+- **Theme / Language selectors** — switch Shiki themes and languages on the fly
+- **CSS variable controls** — adjust colors, font size, line height, etc. with color pickers and sliders
+- **Operation history** — every vim action is logged with the triggering key (`<cursor-move> [j] -> 5:1`)
+- **"Copy for LLM" button** — copies the full operation log, editor state, and settings as a markdown report you can paste directly into a bug report or LLM conversation
+
+Changes to files under `src/` are reflected immediately in the debug app via HMR.
+
+### Workflow
+
+1. Start the debug app (`cd debug && bun run dev`)
+2. Make changes to the library source in `src/`
+3. Test your changes interactively in the browser
+4. Use "Copy for LLM" in the history panel if you need to report unexpected behavior
+5. Run `bun run test` before submitting a PR
 
 PRs are welcome! Please make sure `bun run test` and `bun run typecheck` pass before submitting.
 
