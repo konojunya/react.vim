@@ -381,6 +381,57 @@ describe("Normal mode", () => {
   });
 
   // ---------------------------------------------------
+  // ~ (toggle case)
+  // ---------------------------------------------------
+  describe("~ command (toggle case)", () => {
+    it("toggles lowercase to uppercase and advances cursor", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("Hello");
+      expect(result.cursor.col).toBe(1);
+    });
+
+    it("toggles uppercase to lowercase", () => {
+      const buffer = new TextBuffer("HELLO");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("hELLO");
+      expect(result.cursor.col).toBe(1);
+    });
+
+    it("toggles 3 characters with 3~", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["3", "~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("HELlo");
+      expect(result.cursor.col).toBe(3);
+    });
+
+    it("leaves non-alpha characters unchanged and advances", () => {
+      const buffer = new TextBuffer("a1b");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["3", "~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("A1B");
+    });
+
+    it("clamps cursor at end of line", () => {
+      const buffer = new TextBuffer("ab");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["5", "~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("AB");
+      expect(result.cursor.col).toBe(1);
+    });
+
+    it("does nothing on an empty line", () => {
+      const buffer = new TextBuffer("");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["~"], ctx, buffer);
+      expect(buffer.getContent()).toBe("");
+    });
+  });
+
+  // ---------------------------------------------------
   // D (delete to end of line)
   // ---------------------------------------------------
   describe("D command (delete to end of line)", () => {

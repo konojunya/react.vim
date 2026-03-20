@@ -80,7 +80,7 @@ export function processNormalMode(
     // prettier-ignore
     const mutatingKeys = new Set([
       "i", "a", "o", "I", "A", "O",  // insert entry
-      "x", "p", "P",                   // edit commands
+      "x", "p", "P", "~",               // edit commands
       "d", "c", "D", "C",              // mutating operators (y is allowed)
       "J",                              // join lines
       "u",                              // undo
@@ -583,6 +583,8 @@ function tryEditCommand(
       return handleDeleteToEndOfLine(ctx, buffer);
     case "C":
       return handleChangeToEndOfLine(ctx, buffer);
+    case "~":
+      return handleToggleCase(ctx, buffer, count);
     default:
       return null;
   }
@@ -636,6 +638,44 @@ function handleChangeToEndOfLine(
       ...result.actions,
       { type: "cursor-move", position: result.newCursor },
       { type: "mode-change", mode: "insert" },
+    ],
+  };
+}
+
+/**
+ * ~: Toggle case of the character under the cursor and advance
+ */
+function handleToggleCase(
+  ctx: VimContext,
+  buffer: TextBuffer,
+  count: number,
+): KeystrokeResult {
+  const lineLen = buffer.getLineLength(ctx.cursor.line);
+  if (lineLen === 0) {
+    return { newCtx: resetContext(ctx), actions: [] };
+  }
+
+  buffer.saveUndoPoint(ctx.cursor);
+
+  const line = buffer.getLine(ctx.cursor.line);
+  const chars = line.split("");
+  const end = Math.min(ctx.cursor.col + count, lineLen);
+
+  for (let i = ctx.cursor.col; i < end; i++) {
+    const ch = chars[i];
+    chars[i] = ch === ch.toUpperCase() ? ch.toLowerCase() : ch.toUpperCase();
+  }
+
+  buffer.setLine(ctx.cursor.line, chars.join(""));
+
+  const newCol = Math.min(end, lineLen - 1);
+  const newCursor = { line: ctx.cursor.line, col: newCol };
+
+  return {
+    newCtx: { ...resetContext(ctx), cursor: newCursor },
+    actions: [
+      { type: "content-change", content: buffer.getContent() },
+      { type: "cursor-move", position: newCursor },
     ],
   };
 }
