@@ -436,5 +436,19 @@ describe("Command-line mode", () => {
       pressKeys([...":", ..."%s#/usr/bin#/usr/local/bin#g", "Enter"], ctx, buffer);
       expect(buffer.getContent()).toBe("/usr/local/bin/sh");
     });
+
+    it(":s/old/new works without trailing delimiter", () => {
+      const buffer = new TextBuffer("foo bar foo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."s/foo/baz", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("baz bar foo");
+    });
+
+    it(":%s/old/new works without trailing delimiter", () => {
+      const buffer = new TextBuffer("foo\nfoo");
+      const ctx = createInitialContext({ line: 0, col: 0 });
+      pressKeys([...":", ..."%s/foo/bar", "Enter"], ctx, buffer);
+      expect(buffer.getContent()).toBe("bar\nbar");
+    });
   });
 });

@@ -226,13 +226,13 @@ function trySubstitute(
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult | null {
-  // Parse: optional range + s + delimiter + pattern + delimiter + replacement + delimiter + flags
+  // Parse: optional range + s + delimiter + pattern + delimiter + replacement + optional(delimiter + flags)
   const match = cmd.match(
-    /^(%|(\d+|\.)?,?(\d+|\$)?)?s(.)(.+?)\4(.*?)\4([gi]*)$/,
+    /^(%|(\d+|\.)?,?(\d+|\$)?)?s(.)(.+?)\4(.*?)(?:\4([gi]*))?$/,
   );
   if (!match) return null;
 
-  const [, rangeStr, rangeStart, rangeEnd, , pattern, replacement, flags] = match;
+  const [, rangeStr, rangeStart, rangeEnd, , pattern, replacement, flags = ""] = match;
   const globalFlag = flags.includes("g");
   const caseInsensitive = flags.includes("i");
 
