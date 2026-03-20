@@ -68,6 +68,7 @@ export type VimAction =
   | { type: "save"; content: string }
   | { type: "status-message"; message: string }
   | { type: "scroll"; direction: "up" | "down"; amount: number }
+  | { type: "set-option"; option: string; value: boolean }
   | { type: "noop" };
 
 /**

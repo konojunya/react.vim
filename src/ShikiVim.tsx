@@ -84,6 +84,10 @@ export default function ShikiVim({
     shikiOptions,
   );
 
+  // --- Line numbers (prop overridden by :set number / :set nonumber) ---
+  const effectiveShowLineNumbers =
+    engine.options.number !== undefined ? engine.options.number : showLineNumbers;
+
   // --- Calculate gutter width for line numbers ---
   const totalLines = tokenLines.length;
   const gutterWidth = String(totalLines).length;
@@ -160,7 +164,7 @@ export default function ShikiVim({
         <Cursor
           position={engine.cursor}
           mode={engine.mode}
-          showLineNumbers={showLineNumbers}
+          showLineNumbers={effectiveShowLineNumbers}
           gutterWidth={gutterWidth}
         />
 
@@ -170,7 +174,7 @@ export default function ShikiVim({
             key={lineIndex}
             lineIndex={lineIndex}
             tokens={tokens}
-            showLineNumbers={showLineNumbers}
+            showLineNumbers={effectiveShowLineNumbers}
             totalLines={totalLines}
             isSelected={selectionInfo.isLineSelected(lineIndex)}
             selectionStartCol={selectionInfo.getSelectionStartCol(lineIndex)}

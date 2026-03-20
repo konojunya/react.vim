@@ -158,6 +158,8 @@ function App() {
 | `Ctrl-U` / `Ctrl-D` | Half page up / down |
 | `:w` | Save |
 | `:{number}` | Go to line |
+| `:set number` (`:set nu`) | Show line numbers |
+| `:set nonumber` (`:set nonu`) | Hide line numbers |
 
 ## Styling
 

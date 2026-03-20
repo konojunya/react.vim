@@ -55,6 +55,8 @@ export interface VimEngineState {
   visualAnchor: CursorPosition | null;
   /** Input buffer for the command line */
   commandLine: string;
+  /** Vim options set via :set commands */
+  options: Record<string, boolean>;
   /** Keyboard event handler */
   handleKeyDown: (e: React.KeyboardEvent) => void;
   /** Scroll event handler (for half-page scrolling) */
@@ -98,6 +100,7 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
     null,
   );
   const [commandLine, setCommandLine] = useState("");
+  const [vimOptions, setVimOptions] = useState<Record<string, boolean>>({});
 
   /**
    * Process the action list and update React state and callbacks.
@@ -132,6 +135,10 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
 
           case "status-message":
             // statusMessage is set from ctx
+            break;
+
+          case "set-option":
+            setVimOptions((prev) => ({ ...prev, [action.option]: action.value }));
             break;
 
           case "scroll":
@@ -223,6 +230,7 @@ export function useVimEngine(options: VimEngineOptions): VimEngineState {
     statusMessage,
     visualAnchor,
     commandLine,
+    options: vimOptions,
     handleKeyDown,
     handleScroll,
   };
