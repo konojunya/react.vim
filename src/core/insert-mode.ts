@@ -1,15 +1,15 @@
 /**
  * insert-mode.ts
  *
- * インサートモードのキーストローク処理。
+ * Insert mode keystroke processing.
  *
- * インサートモードでは通常のテキスト入力を処理する:
- * - 文字入力: バッファに文字を挿入
- * - Backspace: 前の文字を削除（行頭ではprevious lineと結合）
- * - Delete: 次の文字を削除（行末ではnext lineと結合）
- * - Enter: 行を分割して新しい行を作成
- * - Tab: スペース2つを挿入（TODO: 設定可能にする）
- * - Escape: ノーマルモードに戻る
+ * Insert mode handles normal text input:
+ * - Character input: Insert a character into the buffer
+ * - Backspace: Delete the previous character (join with previous line at line start)
+ * - Delete: Delete the next character (join with next line at line end)
+ * - Enter: Split the line and create a new line
+ * - Tab: Insert two spaces (TODO: make indent width configurable)
+ * - Escape: Return to normal mode
  */
 
 import type { VimContext } from "../types";
@@ -17,7 +17,7 @@ import type { TextBuffer } from "./buffer";
 import type { KeystrokeResult } from "./vim-state";
 
 /**
- * インサートモードのメインハンドラ。
+ * Main handler for insert mode.
  */
 export function processInsertMode(
   key: string,
@@ -25,15 +25,15 @@ export function processInsertMode(
   buffer: TextBuffer,
   ctrlKey: boolean,
 ): KeystrokeResult {
-  // --- Escape → ノーマルモードへ ---
+  // --- Escape -> return to normal mode ---
   if (key === "Escape") {
     return handleEscape(ctx);
   }
 
-  // --- Ctrlキーコンビネーション ---
+  // --- Ctrl key combinations ---
   if (ctrlKey) {
-    // インサートモードではCtrlキーは基本的に無視
-    // TODO: Ctrl-W (単語削除), Ctrl-U (行頭まで削除) など
+    // In insert mode, Ctrl key combinations are generally ignored
+    // TODO: Ctrl-W (delete word), Ctrl-U (delete to beginning of line), etc.
     return { newCtx: ctx, actions: [] };
   }
 
@@ -57,18 +57,18 @@ export function processInsertMode(
     return handleTab(ctx, buffer);
   }
 
-  // --- 通常の文字入力 ---
+  // --- Normal character input ---
   if (key.length === 1) {
     return handleCharInput(key, ctx, buffer);
   }
 
-  // --- その他のキー（矢印キーなど）は無視 ---
+  // --- Other keys (arrow keys, etc.) are ignored ---
   return { newCtx: ctx, actions: [] };
 }
 
 /**
- * Escape: インサートモードからノーマルモードへ。
- * カーソルを1つ左に戻す（Vimの仕様）。
+ * Escape: Transition from insert mode to normal mode.
+ * Move the cursor one position to the left (Vim behavior).
  */
 function handleEscape(ctx: VimContext): KeystrokeResult {
   const col = Math.max(0, ctx.cursor.col - 1);
@@ -92,21 +92,21 @@ function handleEscape(ctx: VimContext): KeystrokeResult {
 }
 
 /**
- * Backspace: カーソル前の文字を削除。
- * 行頭の場合は前の行と結合する。
+ * Backspace: Delete the character before the cursor.
+ * At the beginning of a line, join with the previous line.
  */
 function handleBackspace(
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult {
-  // 行頭の場合
+  // At the beginning of a line
   if (ctx.cursor.col === 0) {
-    // 1行目の先頭では何もしない
+    // Do nothing at the start of the first line
     if (ctx.cursor.line === 0) {
       return { newCtx: ctx, actions: [] };
     }
 
-    // 前の行と結合
+    // Join with the previous line
     const prevLineLen = buffer.getLineLength(ctx.cursor.line - 1);
     buffer.joinLines(ctx.cursor.line - 1);
     const newCursor = { line: ctx.cursor.line - 1, col: prevLineLen };
@@ -120,7 +120,7 @@ function handleBackspace(
     };
   }
 
-  // 通常のBackspace: 1文字削除
+  // Normal Backspace: delete one character
   buffer.deleteAt(ctx.cursor.line, ctx.cursor.col - 1);
   const newCursor = { line: ctx.cursor.line, col: ctx.cursor.col - 1 };
 
@@ -134,24 +134,24 @@ function handleBackspace(
 }
 
 /**
- * Delete: カーソル位置の文字を削除。
- * 行末の場合は次の行と結合する。
+ * Delete: Delete the character at the cursor position.
+ * At the end of a line, join with the next line.
  */
 function handleDelete(
   ctx: VimContext,
   buffer: TextBuffer,
 ): KeystrokeResult {
-  // 行末の場合
+  // At the end of a line
   if (ctx.cursor.col >= buffer.getLineLength(ctx.cursor.line)) {
-    // 最終行の末尾では何もしない
+    // Do nothing at the end of the last line
     if (ctx.cursor.line >= buffer.getLineCount() - 1) {
       return { newCtx: ctx, actions: [] };
     }
 
-    // 次の行と結合
+    // Join with the next line
     buffer.joinLines(ctx.cursor.line);
   } else {
-    // 通常のDelete: 1文字削除
+    // Normal Delete: delete one character
     buffer.deleteAt(ctx.cursor.line, ctx.cursor.col);
   }
 
@@ -162,7 +162,7 @@ function handleDelete(
 }
 
 /**
- * Enter: 現在のカーソル位置で行を分割する。
+ * Enter: Split the line at the current cursor position.
  */
 function handleEnter(
   ctx: VimContext,
@@ -181,8 +181,8 @@ function handleEnter(
 }
 
 /**
- * Tab: スペース2つを挿入する。
- * TODO: インデント幅を設定可能にする
+ * Tab: Insert two spaces.
+ * TODO: Make indent width configurable
  */
 function handleTab(
   ctx: VimContext,
@@ -205,7 +205,7 @@ function handleTab(
 }
 
 /**
- * 通常の文字入力: カーソル位置に1文字挿入する。
+ * Normal character input: Insert one character at the cursor position.
  */
 function handleCharInput(
   key: string,

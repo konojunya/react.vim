@@ -1,14 +1,14 @@
 /**
  * vim-state.ts
  *
- * Vimの状態管理の中核。
- * 状態の初期化と、キーストロークを受けて適切なモードハンドラに委譲するディスパッチャ。
+ * Core of Vim state management.
+ * Initializes state and dispatches keystrokes to the appropriate mode handler.
  *
- * 各モードの処理は個別ファイルに分割されている:
- * - normal-mode.ts: ノーマルモード
- * - insert-mode.ts: インサートモード
- * - visual-mode.ts: ビジュアルモード
- * - command-line-mode.ts: コマンドラインモード（:, /, ?）
+ * Each mode's processing is split into its own file:
+ * - normal-mode.ts: Normal mode
+ * - insert-mode.ts: Insert mode
+ * - visual-mode.ts: Visual mode
+ * - command-line-mode.ts: Command-line mode (:, /, ?)
  */
 
 import type { CursorPosition, VimContext, VimAction } from "../types";
@@ -18,15 +18,15 @@ import { processInsertMode } from "./insert-mode";
 import { processVisualMode } from "./visual-mode";
 import { processCommandLineMode } from "./command-line-mode";
 
-/** processKeystroke の返り値 */
+/** Return value of processKeystroke */
 export interface KeystrokeResult {
   newCtx: VimContext;
   actions: VimAction[];
 }
 
 /**
- * VimContextの初期値を生成する。
- * コンポーネントのマウント時に1回だけ呼ばれる。
+ * Generate the initial VimContext value.
+ * Called once when the component mounts.
  */
 export function createInitialContext(cursor: CursorPosition): VimContext {
   return {
@@ -47,8 +47,8 @@ export function createInitialContext(cursor: CursorPosition): VimContext {
 }
 
 /**
- * カーソルポジション文字列（"1:1" 形式、1-based）を
- * 内部の0-based CursorPosition にパースする。
+ * Parse a cursor position string ("1:1" format, 1-based)
+ * into an internal 0-based CursorPosition.
  */
 export function parseCursorPosition(pos: string): CursorPosition {
   const parts = pos.split(":");
@@ -58,16 +58,16 @@ export function parseCursorPosition(pos: string): CursorPosition {
 }
 
 /**
- * メインのキーストローク処理ディスパッチャ。
+ * Main keystroke processing dispatcher.
  *
- * 現在のモードに応じて、対応するモードハンドラに処理を委譲する。
- * 各モードハンドラは新しいコンテキストとアクションリストを返す。
+ * Delegates processing to the corresponding mode handler based on the current mode.
+ * Each mode handler returns a new context and a list of actions.
  *
- * @param key - KeyboardEvent.key の値
- * @param ctx - 現在のVimコンテキスト
- * @param buffer - テキストバッファ
- * @param ctrlKey - Ctrlキーが押されているか
- * @param readOnly - 読み取り専用モード
+ * @param key - The value of KeyboardEvent.key
+ * @param ctx - The current Vim context
+ * @param buffer - The text buffer
+ * @param ctrlKey - Whether the Ctrl key is pressed
+ * @param readOnly - Read-only mode
  */
 export function processKeystroke(
   key: string,
@@ -80,7 +80,7 @@ export function processKeystroke(
     case "normal":
       return processNormalMode(key, ctx, buffer, ctrlKey, readOnly);
     case "insert":
-      // readOnly: insertモードに到達すべきではないが安全のため強制的にnormalへ戻す
+      // readOnly: should not reach insert mode, but force return to normal mode as a safety measure
       if (readOnly) {
         return {
           newCtx: {

@@ -1,10 +1,10 @@
 /**
  * ShikiVim.tsx
  *
- * メインのReactコンポーネント。
- * Shikiによるシンタックスハイライトと、Vim風のキーボード操作を提供する。
+ * Main React component.
+ * Provides syntax highlighting via Shiki and Vim-like keyboard operations.
  *
- * 使い方:
+ * Usage:
  * ```tsx
  * import ShikiVim from 'shiki-vim'
  * import 'shiki-vim/styles.css'
@@ -34,10 +34,10 @@ import { Cursor } from "./components/Cursor";
 import { StatusLine } from "./components/StatusLine";
 
 /**
- * ShikiVim エディタコンポーネント。
+ * ShikiVim editor component.
  *
- * Shikiのハイライターでコードを表示し、
- * Vim風のキーバインドで操作できるエディタ。
+ * Displays code using Shiki's highlighter
+ * with Vim-like keybindings for editing.
  */
 export default function ShikiVim({
   content: initialContent,
@@ -57,7 +57,7 @@ export default function ShikiVim({
   const containerRef = useRef<HTMLDivElement>(null);
   const codeAreaRef = useRef<HTMLDivElement>(null);
 
-  // --- Vimエンジン ---
+  // --- Vim engine ---
   const engine = useVimEngine({
     content: initialContent,
     cursorPosition,
@@ -68,7 +68,7 @@ export default function ShikiVim({
     onModeChange,
   });
 
-  // --- Shikiトークナイゼーション ---
+  // --- Shiki tokenization ---
   const { tokenLines, bgColor, fgColor } = useShikiTokens(
     highlighter,
     engine.content,
@@ -77,11 +77,11 @@ export default function ShikiVim({
     shikiOptions,
   );
 
-  // --- 行番号ガターの幅を計算 ---
+  // --- Calculate gutter width for line numbers ---
   const totalLines = tokenLines.length;
   const gutterWidth = String(totalLines).length;
 
-  // --- ビジュアル選択範囲の計算 ---
+  // --- Calculate visual selection range ---
   const selectionInfo = useMemo(() => {
     return computeSelectionInfo(
       engine.mode,
@@ -91,12 +91,12 @@ export default function ShikiVim({
     );
   }, [engine.mode, engine.visualAnchor, engine.cursor, totalLines]);
 
-  // --- スクロール処理（Ctrl-U/D） ---
+  // --- Scroll handling (Ctrl-U/D) ---
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       engine.handleKeyDown(e);
 
-      // Ctrl-U/D のスクロール処理
+      // Scroll handling for Ctrl-U/D
       if (e.ctrlKey && (e.key === "u" || e.key === "d")) {
         if (codeAreaRef.current) {
           const areaHeight = codeAreaRef.current.clientHeight;
@@ -129,9 +129,9 @@ export default function ShikiVim({
       aria-multiline="true"
       aria-readonly={readOnly}
     >
-      {/* コードエリア */}
+      {/* Code area */}
       <div ref={codeAreaRef} className="sv-code-area">
-        {/* カーソル（オーバーレイ） */}
+        {/* Cursor (overlay) */}
         <Cursor
           position={engine.cursor}
           mode={engine.mode}
@@ -139,7 +139,7 @@ export default function ShikiVim({
           gutterWidth={gutterWidth}
         />
 
-        {/* 各行のレンダリング */}
+        {/* Render each line */}
         {tokenLines.map((tokens, lineIndex) => (
           <Line
             key={lineIndex}
@@ -154,7 +154,7 @@ export default function ShikiVim({
         ))}
       </div>
 
-      {/* ステータスライン */}
+      {/* Status line */}
       <StatusLine
         mode={engine.mode}
         cursor={engine.cursor}
@@ -167,7 +167,7 @@ export default function ShikiVim({
 }
 
 // =====================
-// ビジュアル選択ヘルパー
+// Visual selection helpers
 // =====================
 
 interface SelectionInfo {
@@ -177,10 +177,10 @@ interface SelectionInfo {
 }
 
 /**
- * ビジュアルモードの選択範囲情報を計算する。
+ * Compute selection range information for visual mode.
  *
- * visual:      文字単位選択（アンカーからカーソルまで）
- * visual-line: 行単位選択（アンカー行からカーソル行まで）
+ * visual:      Character-wise selection (from anchor to cursor)
+ * visual-line: Line-wise selection (from anchor line to cursor line)
  */
 function computeSelectionInfo(
   mode: string,
@@ -188,7 +188,7 @@ function computeSelectionInfo(
   cursor: CursorPosition,
   _totalLines: number,
 ): SelectionInfo {
-  // ビジュアルモードでない場合は選択なし
+  // No selection if not in visual mode
   if ((mode !== "visual" && mode !== "visual-line") || !anchor) {
     return {
       isLineSelected: () => false,
@@ -197,7 +197,7 @@ function computeSelectionInfo(
     };
   }
 
-  // 選択範囲の正規化（start <= end）
+  // Normalize selection range (start <= end)
   const startLine = Math.min(anchor.line, cursor.line);
   const endLine = Math.max(anchor.line, cursor.line);
   const startPos =
@@ -220,7 +220,7 @@ function computeSelectionInfo(
     };
   }
 
-  // visual (文字単位)
+  // visual (character-wise)
   return {
     isLineSelected: (lineIndex) =>
       lineIndex >= startLine && lineIndex <= endLine,
@@ -232,7 +232,7 @@ function computeSelectionInfo(
     getSelectionEndCol: (lineIndex) => {
       if (lineIndex < startLine || lineIndex > endLine) return undefined;
       if (lineIndex === endPos.line) return endPos.col + 1;
-      // 中間行は行末まで
+      // Middle lines extend to end of line
       return Infinity;
     },
   };

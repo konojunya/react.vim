@@ -1,34 +1,34 @@
 /**
  * useShikiTokens.ts
  *
- * ShikiのHighlighterインスタンスを使って、
- * コンテンツをトークン列に変換するカスタムフック。
+ * A custom hook that uses a Shiki Highlighter instance
+ * to convert content into a sequence of tokens.
  *
- * codeToTokens() を使い、各行のトークン（色・スタイル情報付き）を取得する。
- * テーマの背景色もここで取得する。
+ * Uses codeToTokens() to obtain tokens for each line (with color and style information).
+ * Also retrieves the theme's background color here.
  */
 
 import { useMemo } from "react";
 import type { HighlighterCore, ThemedToken } from "shiki";
 
-/** トークン列と背景色 */
+/** Token sequence and background color */
 export interface ShikiTokenResult {
-  /** 行ごとのトークン列 */
+  /** Token sequence for each line */
   tokenLines: ThemedToken[][];
-  /** テーマの背景色 */
+  /** Theme background color */
   bgColor: string;
-  /** テーマの前景色（デフォルトテキストカラー） */
+  /** Theme foreground color (default text color) */
   fgColor: string;
 }
 
 /**
- * コンテンツをShikiでトークナイズする。
+ * Tokenize content using Shiki.
  *
- * @param highlighter - Shiki Highlighter インスタンス
- * @param content - トークナイズするコンテンツ
- * @param lang - プログラミング言語
- * @param theme - カラーテーマ
- * @param extraOptions - codeToTokens に渡す追加オプション
+ * @param highlighter - Shiki Highlighter instance
+ * @param content - Content to tokenize
+ * @param lang - Programming language
+ * @param theme - Color theme
+ * @param extraOptions - Additional options passed to codeToTokens
  */
 export function useShikiTokens(
   highlighter: HighlighterCore,
@@ -45,7 +45,7 @@ export function useShikiTokens(
         ...extraOptions,
       });
 
-      // テーマの色情報を取得
+      // Retrieve theme color information
       const bgColor = result.bg ?? "#1e1e1e";
       const fgColor = result.fg ?? "#d4d4d4";
 
@@ -55,7 +55,7 @@ export function useShikiTokens(
         fgColor,
       };
     } catch {
-      // フォールバック: トークナイズに失敗した場合、プレーンテキストとして表示
+      // Fallback: if tokenization fails, display as plain text
       const lines = content.split("\n");
       const tokenLines: ThemedToken[][] = lines.map((line) => [
         {

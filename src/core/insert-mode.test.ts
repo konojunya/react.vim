@@ -1,8 +1,8 @@
 /**
  * insert-mode.test.ts
  *
- * インサートモードの統合テスト。
- * 文字入力、Backspace、Delete、Enter、Tab、Escape の動作を検証する。
+ * Integration tests for insert mode.
+ * Verifies behavior of character input, Backspace, Delete, Enter, Tab, and Escape.
  */
 
 import { describe, it, expect } from "vitest";
@@ -11,10 +11,10 @@ import { processKeystroke, createInitialContext } from "./vim-state";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// ヘルパー関数
+// Helper functions
 // =====================
 
-/** インサートモードのテスト用VimContextを生成する */
+/** Create a VimContext in insert mode for testing */
 function createInsertContext(
   cursor: CursorPosition,
   overrides?: Partial<VimContext>,
@@ -27,7 +27,7 @@ function createInsertContext(
   };
 }
 
-/** 複数キーを順番に処理し、最終的な状態を返す */
+/** Process multiple keys in sequence and return the final state */
 function pressKeys(
   keys: string[],
   ctx: VimContext,
@@ -44,15 +44,15 @@ function pressKeys(
 }
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("インサートモード", () => {
+describe("Insert mode", () => {
   // ---------------------------------------------------
-  // 文字入力
+  // Character input
   // ---------------------------------------------------
-  describe("文字入力", () => {
-    it("1文字を挿入する", () => {
+  describe("Character input", () => {
+    it("inserts a single character", () => {
       const buffer = new TextBuffer("hllo");
       const ctx = createInsertContext({ line: 0, col: 1 });
       const { ctx: result } = pressKeys(["e"], ctx, buffer);
@@ -60,7 +60,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("複数文字を連続して挿入する", () => {
+    it("inserts multiple characters consecutively", () => {
       const buffer = new TextBuffer("");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(
@@ -72,7 +72,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(5);
     });
 
-    it("行の中間に文字を挿入する", () => {
+    it("inserts a character in the middle of a line", () => {
       const buffer = new TextBuffer("helo");
       const ctx = createInsertContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["l"], ctx, buffer);
@@ -80,7 +80,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(3);
     });
 
-    it("行末に文字を挿入する", () => {
+    it("inserts a character at the end of a line", () => {
       const buffer = new TextBuffer("hell");
       const ctx = createInsertContext({ line: 0, col: 4 });
       const { ctx: result } = pressKeys(["o"], ctx, buffer);
@@ -88,7 +88,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(5);
     });
 
-    it("空行に文字を挿入する", () => {
+    it("inserts a character on an empty line", () => {
       const buffer = new TextBuffer("");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["a"], ctx, buffer);
@@ -96,7 +96,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(1);
     });
 
-    it("特殊文字（スペースなど）を挿入できる", () => {
+    it("can insert special characters (e.g. spaces)", () => {
       const buffer = new TextBuffer("helloworld");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys([" "], ctx, buffer);
@@ -109,7 +109,7 @@ describe("インサートモード", () => {
   // Backspace
   // ---------------------------------------------------
   describe("Backspace", () => {
-    it("行の中間で1文字削除する", () => {
+    it("deletes one character in the middle of a line", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 3 });
       const { ctx: result } = pressKeys(["Backspace"], ctx, buffer);
@@ -117,7 +117,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("行頭で Backspace を押すと前の行と結合する", () => {
+    it("joins with the previous line when pressing Backspace at the beginning of a line", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createInsertContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["Backspace"], ctx, buffer);
@@ -125,7 +125,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 0, col: 5 });
     });
 
-    it("ファイル先頭（行0、列0）で Backspace を押しても何も起きない", () => {
+    it("does nothing when pressing Backspace at the beginning of the file (line 0, col 0)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["Backspace"], ctx, buffer);
@@ -133,7 +133,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 0, col: 0 });
     });
 
-    it("連続 Backspace で複数文字を削除する", () => {
+    it("deletes multiple characters with consecutive Backspaces", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(
@@ -145,7 +145,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("空行の行頭で Backspace を押すと前の行と結合する", () => {
+    it("joins with the previous line when pressing Backspace at the beginning of an empty line", () => {
       const buffer = new TextBuffer("hello\n");
       const ctx = createInsertContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["Backspace"], ctx, buffer);
@@ -158,7 +158,7 @@ describe("インサートモード", () => {
   // Delete
   // ---------------------------------------------------
   describe("Delete", () => {
-    it("行の中間で1文字削除する", () => {
+    it("deletes one character in the middle of a line", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["Delete"], ctx, buffer);
@@ -166,7 +166,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("行末で Delete を押すと次の行と結合する", () => {
+    it("joins with the next line when pressing Delete at the end of a line", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["Delete"], ctx, buffer);
@@ -174,7 +174,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 0, col: 5 });
     });
 
-    it("最終行の末尾で Delete を押しても何も起きない", () => {
+    it("does nothing when pressing Delete at the end of the last line", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["Delete"], ctx, buffer);
@@ -182,7 +182,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(5);
     });
 
-    it("空行で Delete を押すと次の行と結合する", () => {
+    it("joins with the next line when pressing Delete on an empty line", () => {
       const buffer = new TextBuffer("\nhello");
       const ctx = createInsertContext({ line: 0, col: 0 });
       pressKeys(["Delete"], ctx, buffer);
@@ -191,10 +191,10 @@ describe("インサートモード", () => {
   });
 
   // ---------------------------------------------------
-  // Enter（行分割）
+  // Enter (line split)
   // ---------------------------------------------------
-  describe("Enter（行分割）", () => {
-    it("行の中間で Enter を押すと行が分割される", () => {
+  describe("Enter (line split)", () => {
+    it("splits the line when pressing Enter in the middle of a line", () => {
       const buffer = new TextBuffer("helloworld");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["Enter"], ctx, buffer);
@@ -202,7 +202,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 1, col: 0 });
     });
 
-    it("行頭で Enter を押すと空行が上に挿入される", () => {
+    it("inserts an empty line above when pressing Enter at the beginning of a line", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["Enter"], ctx, buffer);
@@ -210,7 +210,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 1, col: 0 });
     });
 
-    it("行末で Enter を押すと下に空行が挿入される", () => {
+    it("inserts an empty line below when pressing Enter at the end of a line", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["Enter"], ctx, buffer);
@@ -218,7 +218,7 @@ describe("インサートモード", () => {
       expect(result.cursor).toEqual({ line: 1, col: 0 });
     });
 
-    it("連続 Enter で複数行を挿入する", () => {
+    it("inserts multiple lines with consecutive Enters", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(
@@ -232,10 +232,10 @@ describe("インサートモード", () => {
   });
 
   // ---------------------------------------------------
-  // Tab（インデント）
+  // Tab (indentation)
   // ---------------------------------------------------
-  describe("Tab（インデント）", () => {
-    it("Tab でスペース2つが挿入される", () => {
+  describe("Tab (indentation)", () => {
+    it("inserts two spaces with Tab", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["Tab"], ctx, buffer);
@@ -243,7 +243,7 @@ describe("インサートモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("行の中間で Tab を押してもスペースが挿入される", () => {
+    it("inserts spaces when pressing Tab in the middle of a line", () => {
       const buffer = new TextBuffer("helloworld");
       const ctx = createInsertContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["Tab"], ctx, buffer);
@@ -253,31 +253,31 @@ describe("インサートモード", () => {
   });
 
   // ---------------------------------------------------
-  // Escape（ノーマルモードへ復帰）
+  // Escape (return to normal mode)
   // ---------------------------------------------------
-  describe("Escape（ノーマルモードへ復帰）", () => {
-    it("Escape でノーマルモードに戻る", () => {
+  describe("Escape (return to normal mode)", () => {
+    it("returns to normal mode with Escape", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 3 });
       const { ctx: result } = pressKeys(["Escape"], ctx, buffer);
       expect(result.mode).toBe("normal");
     });
 
-    it("Escape 時にカーソルが1つ左に戻る（Vimの仕様）", () => {
+    it("moves cursor one position left on Escape (Vim behavior)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 3 });
       const { ctx: result } = pressKeys(["Escape"], ctx, buffer);
       expect(result.cursor.col).toBe(2);
     });
 
-    it("列0で Escape を押してもカーソルは0のまま", () => {
+    it("keeps cursor at column 0 when pressing Escape at column 0", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["Escape"], ctx, buffer);
       expect(result.cursor.col).toBe(0);
     });
 
-    it("Escape 後にステータスメッセージがクリアされる", () => {
+    it("clears status message after Escape", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 3 });
       const { ctx: result } = pressKeys(["Escape"], ctx, buffer);
@@ -286,10 +286,10 @@ describe("インサートモード", () => {
   });
 
   // ---------------------------------------------------
-  // Ctrlキー（インサートモードでは無視）
+  // Ctrl key (ignored in insert mode)
   // ---------------------------------------------------
-  describe("Ctrl キー（インサートモードでは無視）", () => {
-    it("Ctrl+何かは無視される", () => {
+  describe("Ctrl key (ignored in insert mode)", () => {
+    it("Ctrl+key is ignored", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 2 });
       const result = processKeystroke("a", ctx, buffer, true);
@@ -299,14 +299,14 @@ describe("インサートモード", () => {
   });
 
   // ---------------------------------------------------
-  // その他の特殊キー
+  // Other special keys
   // ---------------------------------------------------
-  describe("その他の特殊キー", () => {
-    it("矢印キーなどの特殊キーは無視される", () => {
+  describe("Other special keys", () => {
+    it("special keys like arrow keys are ignored", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createInsertContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["ArrowLeft"], ctx, buffer);
-      // ArrowLeft は length > 1 のため無視される
+      // ArrowLeft is ignored because its length > 1
       expect(buffer.getContent()).toBe("hello");
       expect(result.cursor.col).toBe(2);
     });

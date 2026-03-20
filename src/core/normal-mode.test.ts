@@ -1,9 +1,9 @@
 /**
  * normal-mode.test.ts
  *
- * ノーマルモードの統合テスト。
- * processKeystroke を通して、カウント・オペレーター・モーション・
- * モード遷移・編集コマンドなどの動作を網羅的に検証する。
+ * Integration tests for normal mode.
+ * Comprehensively verifies behavior of counts, operators, motions,
+ * mode transitions, editing commands, etc. through processKeystroke.
  */
 
 import { describe, it, expect } from "vitest";
@@ -12,10 +12,10 @@ import { processKeystroke, createInitialContext } from "./vim-state";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// ヘルパー関数
+// Helper functions
 // =====================
 
-/** テスト用のVimContextを生成する */
+/** Create a VimContext for testing */
 function createTestContext(
   cursor: CursorPosition,
   overrides?: Partial<VimContext>,
@@ -26,7 +26,7 @@ function createTestContext(
   };
 }
 
-/** 複数キーを順番に処理し、最終的な状態を返す */
+/** Process multiple keys in sequence and return the final state */
 function pressKeys(
   keys: string[],
   ctx: VimContext,
@@ -43,51 +43,51 @@ function pressKeys(
 }
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("ノーマルモード", () => {
+describe("Normal mode", () => {
   // ---------------------------------------------------
-  // カウントプレフィックス
+  // Count prefix
   // ---------------------------------------------------
-  describe("カウントプレフィックス", () => {
-    it("3j で3行下に移動する", () => {
+  describe("Count prefix", () => {
+    it("moves 3 lines down with 3j", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4\nline5");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["3", "j"], ctx, buffer);
       expect(result.cursor).toEqual({ line: 3, col: 0 });
     });
 
-    it("5k で5行上に移動する（行数が足りない場合はクランプ）", () => {
+    it("moves 5 lines up with 5k (clamped when not enough lines)", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 2, col: 0 });
       const { ctx: result } = pressKeys(["5", "k"], ctx, buffer);
       expect(result.cursor.line).toBe(0);
     });
 
-    it("2l で2列右に移動する", () => {
+    it("moves 2 columns right with 2l", () => {
       const buffer = new TextBuffer("abcdef");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["2", "l"], ctx, buffer);
       expect(result.cursor.col).toBe(2);
     });
 
-    it("5w で5単語先に移動する", () => {
+    it("moves 5 words forward with 5w", () => {
       const buffer = new TextBuffer("one two three four five six seven");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["5", "w"], ctx, buffer);
-      // 5w: one→two→three→four→five→six の先頭
+      // 5w: one->two->three->four->five->six start
       expect(result.cursor.col).toBe(24);
     });
 
-    it("カウント 0 は行頭移動として解釈される（カウント未入力時）", () => {
+    it("interprets count 0 as move to beginning of line (when no count entered)", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["0"], ctx, buffer);
       expect(result.cursor.col).toBe(0);
     });
 
-    it("10j のような2桁カウントを正しく処理する", () => {
+    it("correctly processes a two-digit count like 10j", () => {
       const lines = Array.from({ length: 20 }, (_, i) => `line${i}`).join(
         "\n",
       );
@@ -99,10 +99,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // オペレーター + モーション
+  // Operator + motion
   // ---------------------------------------------------
-  describe("オペレーター + モーション", () => {
-    it("dw で1単語を削除する", () => {
+  describe("Operator + motion", () => {
+    it("deletes one word with dw", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["d", "w"], ctx, buffer);
@@ -110,7 +110,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(0);
     });
 
-    it("d$ で行末まで削除する", () => {
+    it("deletes to end of line with d$", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["d", "$"], ctx, buffer);
@@ -118,28 +118,28 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(4);
     });
 
-    it("d0 で行頭まで削除する", () => {
+    it("deletes to beginning of line with d0", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 5 });
       pressKeys(["d", "0"], ctx, buffer);
       expect(buffer.getContent()).toBe(" world");
     });
 
-    it("dG でカーソル行からファイル末尾まで削除する", () => {
+    it("deletes from cursor line to end of file with dG", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const ctx = createTestContext({ line: 1, col: 0 });
       pressKeys(["d", "G"], ctx, buffer);
       expect(buffer.getContent()).toBe("line1");
     });
 
-    it("dgg でカーソル行からファイル先頭まで削除する", () => {
+    it("deletes from cursor line to beginning of file with dgg", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const ctx = createTestContext({ line: 2, col: 0 });
       pressKeys(["d", "g", "g"], ctx, buffer);
       expect(buffer.getContent()).toBe("line4");
     });
 
-    it("yw で1単語をヤンクする（バッファは変更されない）", () => {
+    it("yanks one word with yw (buffer unchanged)", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["y", "w"], ctx, buffer);
@@ -147,7 +147,7 @@ describe("ノーマルモード", () => {
       expect(result.register).toBe("hello ");
     });
 
-    it("cw で1単語を変更してインサートモードに入る", () => {
+    it("changes one word and enters insert mode with cw", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["c", "w"], ctx, buffer);
@@ -157,10 +157,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // ダブルオペレーター（行単位操作）
+  // Double operators (line-wise operations)
   // ---------------------------------------------------
-  describe("ダブルオペレーター（dd, yy, cc）", () => {
-    it("dd で現在行を削除する", () => {
+  describe("Double operators (dd, yy, cc)", () => {
+    it("deletes the current line with dd", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["d", "d"], ctx, buffer);
@@ -169,7 +169,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.line).toBe(1);
     });
 
-    it("yy で現在行をヤンクする（バッファは変更されない）", () => {
+    it("yanks the current line with yy (buffer unchanged)", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["y", "y"], ctx, buffer);
@@ -177,29 +177,29 @@ describe("ノーマルモード", () => {
       expect(result.register).toBe("line2\n");
     });
 
-    it("cc で現在行をクリアしてインサートモードに入る", () => {
+    it("clears the current line and enters insert mode with cc", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["c", "c"], ctx, buffer);
       expect(result.mode).toBe("insert");
       expect(result.register).toBe("line2\n");
-      // ccは行を削除して空行を挿入する
+      // cc deletes the line and inserts an empty line
       expect(buffer.getLine(1)).toBe("");
     });
   });
 
   // ---------------------------------------------------
-  // カウント + オペレーター
+  // Count + operator
   // ---------------------------------------------------
-  describe("カウント + オペレーター", () => {
-    it("3dd で3行を削除する", () => {
+  describe("Count + operator", () => {
+    it("deletes 3 lines with 3dd", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4\nline5");
       const ctx = createTestContext({ line: 1, col: 0 });
       pressKeys(["3", "d", "d"], ctx, buffer);
       expect(buffer.getContent()).toBe("line1\nline5");
     });
 
-    it("2yy で2行をヤンクする", () => {
+    it("yanks 2 lines with 2yy", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["2", "y", "y"], ctx, buffer);
@@ -207,20 +207,20 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("line1\nline2\nline3\nline4");
     });
 
-    it("2dd で最終行付近でもクランプされる", () => {
+    it("clamps 2dd near the last line", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 2, col: 0 });
       pressKeys(["2", "d", "d"], ctx, buffer);
-      // 行2からは1行しかないのでline3のみ削除
+      // Only 1 line from line 2, so only line3 is deleted
       expect(buffer.getContent()).toBe("line1\nline2");
     });
   });
 
   // ---------------------------------------------------
-  // x（文字削除）
+  // x (character deletion)
   // ---------------------------------------------------
-  describe("x コマンド（文字削除）", () => {
-    it("x でカーソル下の文字を削除する", () => {
+  describe("x command (character deletion)", () => {
+    it("deletes the character under the cursor with x", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["x"], ctx, buffer);
@@ -228,7 +228,7 @@ describe("ノーマルモード", () => {
       expect(result.register).toBe("h");
     });
 
-    it("行末で x を押すとカーソルが調整される", () => {
+    it("adjusts cursor when pressing x at end of line", () => {
       const buffer = new TextBuffer("abc");
       const ctx = createTestContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["x"], ctx, buffer);
@@ -236,7 +236,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(1);
     });
 
-    it("空行で x を押しても何も起きない", () => {
+    it("does nothing when pressing x on an empty line", () => {
       const buffer = new TextBuffer("");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["x"], ctx, buffer);
@@ -244,7 +244,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(0);
     });
 
-    it("3x で3文字を削除する", () => {
+    it("deletes 3 characters with 3x", () => {
       const buffer = new TextBuffer("abcdef");
       const ctx = createTestContext({ line: 0, col: 0 });
       pressKeys(["3", "x"], ctx, buffer);
@@ -253,10 +253,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // p / P（ペースト）
+  // p / P (paste)
   // ---------------------------------------------------
-  describe("p / P コマンド（ペースト）", () => {
-    it("p で文字単位のペーストをカーソルの後に行う", () => {
+  describe("p / P command (paste)", () => {
+    it("pastes character-wise after the cursor with p", () => {
       const buffer = new TextBuffer("hllo");
       const ctx = createTestContext({ line: 0, col: 0 }, { register: "e" });
       const { ctx: result } = pressKeys(["p"], ctx, buffer);
@@ -264,7 +264,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(1);
     });
 
-    it("P で文字単位のペーストをカーソルの前に行う", () => {
+    it("pastes character-wise before the cursor with P", () => {
       const buffer = new TextBuffer("hllo");
       const ctx = createTestContext({ line: 0, col: 1 }, { register: "e" });
       const { ctx: result } = pressKeys(["P"], ctx, buffer);
@@ -272,7 +272,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(1);
     });
 
-    it("p で行単位のペーストを次の行に行う", () => {
+    it("pastes line-wise on the next line with p", () => {
       const buffer = new TextBuffer("line1\nline3");
       const ctx = createTestContext(
         { line: 0, col: 0 },
@@ -283,7 +283,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor).toEqual({ line: 1, col: 0 });
     });
 
-    it("P で行単位のペーストを現在行の上に行う", () => {
+    it("pastes line-wise above the current line with P", () => {
       const buffer = new TextBuffer("line1\nline3");
       const ctx = createTestContext(
         { line: 1, col: 0 },
@@ -294,7 +294,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor).toEqual({ line: 1, col: 0 });
     });
 
-    it("レジスタが空の場合 p は何もしない", () => {
+    it("does nothing with p when register is empty", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 }, { register: "" });
       pressKeys(["p"], ctx, buffer);
@@ -303,13 +303,13 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // u（undo）
+  // u (undo)
   // ---------------------------------------------------
-  describe("u コマンド（undo）", () => {
-    it("u で直前の変更を元に戻す", () => {
+  describe("u command (undo)", () => {
+    it("undoes the previous change with u", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
-      // まず dd で行を削除
+      // First delete the line with dd
       const { ctx: afterDelete } = pressKeys(["d", "d"], ctx, buffer);
       expect(buffer.getContent()).toBe("");
       // undo
@@ -318,7 +318,7 @@ describe("ノーマルモード", () => {
       expect(afterUndo.cursor).toEqual({ line: 0, col: 0 });
     });
 
-    it("undo スタックが空のときにメッセージを表示する", () => {
+    it("displays a message when the undo stack is empty", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result, allActions } = pressKeys(["u"], ctx, buffer);
@@ -331,10 +331,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // モード遷移（インサートモードへ）
+  // Mode transition (to insert mode)
   // ---------------------------------------------------
-  describe("インサートモードへの遷移", () => {
-    it("i でインサートモードに入る（カーソル位置そのまま）", () => {
+  describe("Transition to insert mode", () => {
+    it("enters insert mode with i (cursor stays in place)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["i"], ctx, buffer);
@@ -342,7 +342,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("a でカーソルを1つ右に移動してインサートモードに入る", () => {
+    it("moves cursor one position right and enters insert mode with a", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["a"], ctx, buffer);
@@ -350,7 +350,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(3);
     });
 
-    it("I で行の最初の非空白文字に移動してインサートモードに入る", () => {
+    it("moves to the first non-whitespace character and enters insert mode with I", () => {
       const buffer = new TextBuffer("  hello");
       const ctx = createTestContext({ line: 0, col: 5 });
       const { ctx: result } = pressKeys(["I"], ctx, buffer);
@@ -358,7 +358,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(2);
     });
 
-    it("A で行末に移動してインサートモードに入る", () => {
+    it("moves to end of line and enters insert mode with A", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["A"], ctx, buffer);
@@ -366,7 +366,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(5);
     });
 
-    it("o で次の行に空行を挿入してインサートモードに入る", () => {
+    it("inserts a blank line below and enters insert mode with o", () => {
       const buffer = new TextBuffer("line1\nline2");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["o"], ctx, buffer);
@@ -375,7 +375,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("line1\n\nline2");
     });
 
-    it("O で現在行の上に空行を挿入してインサートモードに入る", () => {
+    it("inserts a blank line above and enters insert mode with O", () => {
       const buffer = new TextBuffer("line1\nline2");
       const ctx = createTestContext({ line: 1, col: 0 });
       const { ctx: result } = pressKeys(["O"], ctx, buffer);
@@ -386,10 +386,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // v / V（ビジュアルモードへの遷移）
+  // v / V (transition to visual mode)
   // ---------------------------------------------------
-  describe("ビジュアルモードへの遷移", () => {
-    it("v でビジュアルモードに入る", () => {
+  describe("Transition to visual mode", () => {
+    it("enters visual mode with v", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 2 });
       const { ctx: result } = pressKeys(["v"], ctx, buffer);
@@ -397,7 +397,7 @@ describe("ノーマルモード", () => {
       expect(result.visualAnchor).toEqual({ line: 0, col: 2 });
     });
 
-    it("V でビジュアルラインモードに入る", () => {
+    it("enters visual-line mode with V", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["V"], ctx, buffer);
@@ -407,10 +407,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // J（行結合）
+  // J (join lines)
   // ---------------------------------------------------
-  describe("J コマンド（行結合）", () => {
-    it("J で現在行と次の行をスペースで結合する", () => {
+  describe("J command (join lines)", () => {
+    it("joins the current line with the next line using a space with J", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["J"], ctx, buffer);
@@ -418,14 +418,14 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(5);
     });
 
-    it("J で次の行の先頭空白を除去して結合する", () => {
+    it("strips leading whitespace from the next line when joining with J", () => {
       const buffer = new TextBuffer("hello\n  world");
       const ctx = createTestContext({ line: 0, col: 0 });
       pressKeys(["J"], ctx, buffer);
       expect(buffer.getContent()).toBe("hello world");
     });
 
-    it("最終行で J を押しても何も起きない", () => {
+    it("does nothing when pressing J on the last line", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createTestContext({ line: 1, col: 0 });
       pressKeys(["J"], ctx, buffer);
@@ -434,31 +434,31 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // g プレフィックス（gg）
+  // g prefix (gg)
   // ---------------------------------------------------
-  describe("g プレフィックスコマンド", () => {
-    it("gg でファイル先頭に移動する", () => {
+  describe("g prefix commands", () => {
+    it("moves to the beginning of the file with gg", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 2, col: 3 });
       const { ctx: result } = pressKeys(["g", "g"], ctx, buffer);
       expect(result.cursor.line).toBe(0);
     });
 
-    it("3gg で3行目に移動する", () => {
+    it("moves to line 3 with 3gg", () => {
       const buffer = new TextBuffer("line1\nline2\nline3\nline4");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["3", "g", "g"], ctx, buffer);
       expect(result.cursor.line).toBe(2);
     });
 
-    it("G でファイル末尾に移動する", () => {
+    it("moves to the end of the file with G", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["G"], ctx, buffer);
       expect(result.cursor.line).toBe(2);
     });
 
-    it("未知の g コマンドはリセットされる", () => {
+    it("resets on unknown g command", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["g", "x"], ctx, buffer);
@@ -467,31 +467,31 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // f / F / t / T（文字検索）
+  // f / F / t / T (character search)
   // ---------------------------------------------------
-  describe("f / F / t / T コマンド（行内文字検索）", () => {
-    it("fo でカーソルを 'o' の位置に移動する", () => {
+  describe("f / F / t / T commands (in-line character search)", () => {
+    it("moves cursor to the position of 'o' with fo", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["f", "o"], ctx, buffer);
       expect(result.cursor.col).toBe(4);
     });
 
-    it("Fo で後方に 'o' を検索する", () => {
+    it("searches backward for 'o' with Fo", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 7 });
       const { ctx: result } = pressKeys(["F", "o"], ctx, buffer);
       expect(result.cursor.col).toBe(4);
     });
 
-    it("to で 'o' の手前に移動する", () => {
+    it("moves to just before 'o' with to", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["t", "o"], ctx, buffer);
       expect(result.cursor.col).toBe(3);
     });
 
-    it("To で後方に 'o' の次の位置に移動する", () => {
+    it("moves to just after 'o' backward with To", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 7 });
       const { ctx: result } = pressKeys(["T", "o"], ctx, buffer);
@@ -500,17 +500,17 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // r（1文字置換）
+  // r (single character replacement)
   // ---------------------------------------------------
-  describe("r コマンド（1文字置換）", () => {
-    it("rx でカーソル下の文字を 'x' に置換する", () => {
+  describe("r command (single character replacement)", () => {
+    it("replaces the character under the cursor with 'x' using rx", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       pressKeys(["r", "x"], ctx, buffer);
       expect(buffer.getContent()).toBe("xello");
     });
 
-    it("空行で r を押しても何も起きない", () => {
+    it("does nothing when pressing r on an empty line", () => {
       const buffer = new TextBuffer("");
       const ctx = createTestContext({ line: 0, col: 0 });
       pressKeys(["r", "x"], ctx, buffer);
@@ -519,10 +519,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // n / N（検索繰り返し）
+  // n / N (search repeat)
   // ---------------------------------------------------
-  describe("n / N コマンド（検索繰り返し）", () => {
-    it("n で前方検索を繰り返す", () => {
+  describe("n / N commands (repeat search)", () => {
+    it("repeats forward search with n", () => {
       const buffer = new TextBuffer("foo bar foo baz foo");
       const ctx = createTestContext(
         { line: 0, col: 0 },
@@ -532,7 +532,7 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(8);
     });
 
-    it("N で検索方向を反転する", () => {
+    it("reverses search direction with N", () => {
       const buffer = new TextBuffer("foo bar foo baz foo");
       const ctx = createTestContext(
         { line: 0, col: 8 },
@@ -542,14 +542,14 @@ describe("ノーマルモード", () => {
       expect(result.cursor.col).toBe(0);
     });
 
-    it("lastSearch が空のとき n は何もしない", () => {
+    it("does nothing with n when lastSearch is empty", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 }, { lastSearch: "" });
       const { ctx: result } = pressKeys(["n"], ctx, buffer);
       expect(result.cursor).toEqual({ line: 0, col: 0 });
     });
 
-    it("パターンが見つからない場合ステータスメッセージを表示する", () => {
+    it("displays a status message when the pattern is not found", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext(
         { line: 0, col: 0 },
@@ -561,10 +561,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // コマンドライン / 検索モードへの遷移
+  // Command-line / search mode transition
   // ---------------------------------------------------
-  describe("コマンドライン / 検索への遷移", () => {
-    it(": でコマンドラインモードに入る", () => {
+  describe("Command-line / search transition", () => {
+    it("enters command-line mode with :", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys([":"], ctx, buffer);
@@ -572,7 +572,7 @@ describe("ノーマルモード", () => {
       expect(result.commandType).toBe(":");
     });
 
-    it("/ で前方検索モードに入る", () => {
+    it("enters forward search mode with /", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["/"], ctx, buffer);
@@ -581,7 +581,7 @@ describe("ノーマルモード", () => {
       expect(result.searchDirection).toBe("forward");
     });
 
-    it("? で後方検索モードに入る", () => {
+    it("enters backward search mode with ?", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["?"], ctx, buffer);
@@ -592,13 +592,13 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // Ctrl キーコンビネーション
+  // Ctrl key combinations
   // ---------------------------------------------------
-  describe("Ctrl キーコンビネーション", () => {
-    it("Ctrl-R でリドゥする", () => {
+  describe("Ctrl key combinations", () => {
+    it("redoes with Ctrl-R", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
-      // dd → undo → redo
+      // dd -> undo -> redo
       const { ctx: afterDd } = pressKeys(["d", "d"], ctx, buffer);
       const { ctx: afterUndo } = pressKeys(["u"], afterDd, buffer);
       expect(buffer.getContent()).toBe("hello");
@@ -606,7 +606,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("");
     });
 
-    it("Ctrl-R でリドゥスタックが空の場合メッセージを表示する", () => {
+    it("displays a message when Ctrl-R redo stack is empty", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const result = processKeystroke("r", ctx, buffer, true);
@@ -617,10 +617,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // オペレーターペンディング中の特殊動作
+  // Special behavior during operator-pending
   // ---------------------------------------------------
-  describe("オペレーターペンディング", () => {
-    it("無効なキーでオペレーターがキャンセルされる", () => {
+  describe("Operator pending", () => {
+    it("cancels operator on invalid key", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["d", "z"], ctx, buffer);
@@ -628,7 +628,7 @@ describe("ノーマルモード", () => {
       expect(result.operator).toBeNull();
     });
 
-    it("dfa でオペレーター + 文字検索モーションが機能する", () => {
+    it("operator + character search motion works with dfa", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["d", "f", "o"], ctx, buffer);
@@ -637,10 +637,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // マッチしないキーのリセット
+  // Reset on unmatched key
   // ---------------------------------------------------
-  describe("未知のキー", () => {
-    it("認識されないキーはコンテキストをリセットする", () => {
+  describe("Unknown key", () => {
+    it("resets context on unrecognized key", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 }, { count: 5 });
       const { ctx: result } = pressKeys(["z"], ctx, buffer);
@@ -650,10 +650,10 @@ describe("ノーマルモード", () => {
   });
 
   // ---------------------------------------------------
-  // readOnly モード
+  // readOnly mode
   // ---------------------------------------------------
-  describe("readOnly モード", () => {
-    /** readOnly モードで複数キーを処理するヘルパー */
+  describe("readOnly mode", () => {
+    /** Helper to process multiple keys in readOnly mode */
     function pressKeysReadOnly(
       keys: string[],
       ctx: VimContext,
@@ -669,7 +669,7 @@ describe("ノーマルモード", () => {
       return { ctx: current, allActions };
     }
 
-    it("i, a, o, I, A, O でインサートモードに入れない", () => {
+    it("cannot enter insert mode with i, a, o, I, A, O", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -679,7 +679,7 @@ describe("ノーマルモード", () => {
       }
     });
 
-    it("d, c オペレーターがブロックされる", () => {
+    it("blocks d, c operators", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -694,7 +694,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("hello world");
     });
 
-    it("y オペレーターは許可される", () => {
+    it("allows y operator", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -708,7 +708,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("hello world");
     });
 
-    it("x, p, P がブロックされる", () => {
+    it("blocks x, p, P", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext(
         { line: 0, col: 0 },
@@ -722,7 +722,7 @@ describe("ノーマルモード", () => {
       }
     });
 
-    it("J (行結合) がブロックされる", () => {
+    it("blocks J (join lines)", () => {
       const buffer = new TextBuffer("hello\nworld");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -731,7 +731,7 @@ describe("ノーマルモード", () => {
       expect(result.newCtx.mode).toBe("normal");
     });
 
-    it("u (undo) がブロックされる", () => {
+    it("blocks u (undo)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -739,7 +739,7 @@ describe("ノーマルモード", () => {
       expect(result.newCtx.mode).toBe("normal");
     });
 
-    it("r (replace) がブロックされる", () => {
+    it("blocks r (replace)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -747,7 +747,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("hello");
     });
 
-    it("Ctrl-R (redo) がブロックされる", () => {
+    it("blocks Ctrl-R (redo)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -755,7 +755,7 @@ describe("ノーマルモード", () => {
       expect(result.newCtx.mode).toBe("normal");
     });
 
-    it(": (exコマンド) がブロックされる", () => {
+    it("blocks : (ex command)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -763,20 +763,20 @@ describe("ノーマルモード", () => {
       expect(result.newCtx.mode).toBe("normal");
     });
 
-    it("モーション (h, j, k, l, w, e, b) は許可される", () => {
+    it("allows motions (h, j, k, l, w, e, b)", () => {
       const buffer = new TextBuffer("hello world\nsecond line");
       const ctx = createTestContext({ line: 0, col: 0 });
 
-      // w: 次の単語へ
+      // w: next word
       const r1 = processKeystroke("w", ctx, buffer, false, true);
       expect(r1.newCtx.cursor.col).toBe(6);
 
-      // j: 次の行へ
+      // j: next line
       const r2 = processKeystroke("j", ctx, buffer, false, true);
       expect(r2.newCtx.cursor.line).toBe(1);
     });
 
-    it("/ (検索) は許可される", () => {
+    it("allows / (search)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -785,7 +785,7 @@ describe("ノーマルモード", () => {
       expect(result.newCtx.commandType).toBe("/");
     });
 
-    it("v, V (ビジュアルモード) は許可される", () => {
+    it("allows v, V (visual mode)", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext({ line: 0, col: 0 });
 
@@ -796,14 +796,14 @@ describe("ノーマルモード", () => {
       expect(r2.newCtx.mode).toBe("visual-line");
     });
 
-    it("ビジュアルモードで d, x, c がブロックされる", () => {
+    it("blocks d, x, c in visual mode", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext(
         { line: 0, col: 0 },
         { mode: "visual", visualAnchor: { line: 0, col: 0 } },
       );
 
-      // カーソルを動かして選択範囲を作る
+      // Move cursor to create a selection
       const { ctx: afterMotion } = pressKeysReadOnly(["w"], ctx, buffer);
 
       for (const key of ["d", "x", "c"]) {
@@ -812,7 +812,7 @@ describe("ノーマルモード", () => {
       }
     });
 
-    it("ビジュアルモードで y は許可される", () => {
+    it("allows y in visual mode", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createTestContext(
         { line: 0, col: 0 },
@@ -825,7 +825,7 @@ describe("ノーマルモード", () => {
       expect(buffer.getContent()).toBe("hello world");
     });
 
-    it("insertモードにいる場合は強制的にnormalに戻る", () => {
+    it("forces back to normal mode when in insert mode", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createTestContext(
         { line: 0, col: 2 },

@@ -1,17 +1,17 @@
 /**
  * visual-mode.ts
  *
- * ビジュアルモード (v, V) のキーストローク処理。
+ * Visual mode (v, V) keystroke processing.
  *
- * ビジュアルモードでは:
- * - アンカー（選択開始位置）とカーソル（選択終了位置）で範囲を定義
- * - モーションでカーソルを移動し、選択範囲を拡大/縮小
- * - オペレーター（d, y, c, x）で選択範囲に対して操作を実行
- * - Escape でノーマルモードに戻る
- * - v / V で選択モードを切り替え
+ * In visual mode:
+ * - The range is defined by the anchor (selection start) and cursor (selection end)
+ * - Motions move the cursor, expanding/shrinking the selection
+ * - Operators (d, y, c, x) act on the selected range
+ * - Escape returns to normal mode
+ * - v / V toggles between selection modes
  *
- * visual:      文字単位の選択
- * visual-line: 行単位の選択
+ * visual:      Character-wise selection
+ * visual-line: Line-wise selection
  */
 
 import type { CursorPosition, VimContext, Operator } from "../types";
@@ -30,7 +30,7 @@ import { executeOperatorOnRange } from "./operators";
 import { motionGG } from "./motions";
 
 /**
- * ビジュアルモードのメインハンドラ。
+ * Main handler for visual mode.
  */
 export function processVisualMode(
   key: string,
@@ -39,7 +39,7 @@ export function processVisualMode(
   ctrlKey: boolean,
   readOnly: boolean = false,
 ): KeystrokeResult {
-  // --- Escape → ノーマルモードへ ---
+  // --- Escape -> return to normal mode ---
   if (key === "Escape") {
     return exitVisualMode(ctx);
   }
@@ -49,12 +49,12 @@ export function processVisualMode(
     return handleGPendingInVisual(key, ctx, buffer);
   }
 
-  // --- Ctrlキー ---
+  // --- Ctrl key ---
   if (ctrlKey) {
     return handleCtrlKey(key, ctx, buffer);
   }
 
-  // --- カウント ---
+  // --- Count ---
   if (isCountKey(key, ctx)) {
     return {
       newCtx: { ...ctx, count: ctx.count * 10 + Number.parseInt(key, 10) },
@@ -62,7 +62,7 @@ export function processVisualMode(
     };
   }
 
-  // --- モーション ---
+  // --- Motion ---
   const count = getEffectiveCount(ctx);
   const countExplicit = isCountExplicit(ctx);
   const motion = resolveMotion(key, ctx.cursor, buffer, count, countExplicit);
@@ -77,7 +77,7 @@ export function processVisualMode(
     };
   }
 
-  // --- g プレフィックス ---
+  // --- g prefix ---
   if (key === "g") {
     return {
       newCtx: { ...ctx, phase: "g-pending" },
@@ -85,16 +85,16 @@ export function processVisualMode(
     };
   }
 
-  // --- オペレーター実行 ---
+  // --- Operator execution ---
   if (key === "d" || key === "x" || key === "y" || key === "c") {
-    // readOnly: 削除・変更をブロック（y は許可）
+    // readOnly: block delete/change (y is allowed)
     if (readOnly && key !== "y") {
       return { newCtx: ctx, actions: [] };
     }
     return executeVisualOperator(key, ctx, buffer);
   }
 
-  // --- モード切替 ---
+  // --- Mode switch ---
   if (key === "v") {
     return ctx.mode === "visual"
       ? exitVisualMode(ctx)
@@ -110,7 +110,7 @@ export function processVisualMode(
 }
 
 /**
- * ビジュアルモードを抜けてノーマルモードへ。
+ * Exit visual mode and return to normal mode.
  */
 function exitVisualMode(ctx: VimContext): KeystrokeResult {
   return {
@@ -124,7 +124,7 @@ function exitVisualMode(ctx: VimContext): KeystrokeResult {
 }
 
 /**
- * ビジュアルサブモードを切り替える (visual ↔ visual-line)。
+ * Switch between visual sub-modes (visual <-> visual-line).
  */
 function switchVisualSubMode(
   ctx: VimContext,
@@ -140,7 +140,7 @@ function switchVisualSubMode(
 }
 
 /**
- * g プレフィックスの処理 (gg)
+ * Handle g prefix (gg)
  */
 function handleGPendingInVisual(
   key: string,
@@ -161,7 +161,7 @@ function handleGPendingInVisual(
     };
   }
 
-  // 未知の g コマンド → リセット
+  // Unknown g command -> reset
   return {
     newCtx: { ...ctx, phase: "idle", count: 0 },
     actions: [],
@@ -169,11 +169,11 @@ function handleGPendingInVisual(
 }
 
 /**
- * ビジュアル選択範囲に対してオペレーターを実行する。
+ * Execute an operator on the visual selection range.
  *
- * d / x: 削除
- * y: ヤンク
- * c: 変更（削除してinsertモードへ）
+ * d / x: Delete
+ * y: Yank
+ * c: Change (delete and enter insert mode)
  */
 function executeVisualOperator(
   key: string,
@@ -186,10 +186,10 @@ function executeVisualOperator(
 
   buffer.saveUndoPoint(ctx.cursor);
 
-  // x は d と同じ動作
+  // x behaves the same as d
   const operator: Operator = key === "x" ? "d" : (key as Operator);
 
-  // 選択範囲を正規化（start <= end）
+  // Normalize the selection range (start <= end)
   const { start, end } = normalizeSelection(ctx.visualAnchor, ctx.cursor);
   const isLinewise = ctx.mode === "visual-line";
 
@@ -221,7 +221,7 @@ function executeVisualOperator(
 }
 
 /**
- * 2つのカーソル位置を正規化して、start <= end にする。
+ * Normalize two cursor positions so that start <= end.
  */
 function normalizeSelection(
   a: CursorPosition,

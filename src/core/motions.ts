@@ -135,13 +135,13 @@ export function motionW(
   let { line, col } = cursor;
 
   for (let i = 0; i < count; i++) {
-    // 前の位置を保存（移動できなかった場合に戻る用）
+    // Save previous position (to revert if movement fails)
     const prevLine = line;
     const prevCol = col;
 
     const text = buffer.getLine(line);
 
-    // すでに行末を超えている場合、次の行へ移動
+    // If already past end of line, move to the next line
     if (col >= text.length) {
       if (line < buffer.getLineCount() - 1) {
         line++;
@@ -151,23 +151,23 @@ export function motionW(
     }
 
     const ch = text[col];
-    // 現在の文字クラスをスキップ（word / punctuation）
+    // Skip the current character class (word / punctuation)
     if (isWordChar(ch)) {
       while (col < text.length && isWordChar(text[col])) col++;
     } else if (isPunctuation(ch)) {
       while (col < text.length && isPunctuation(text[col])) col++;
     }
-    // 空白をスキップ
+    // Skip whitespace
     while (col < text.length && (text[col] === " " || text[col] === "\t"))
       col++;
 
-    // 行末に達した場合、次の行の先頭に移動
+    // If end of line is reached, move to the beginning of the next line
     if (col >= text.length) {
       if (line < buffer.getLineCount() - 1) {
         line++;
         col = 0;
       } else {
-        // ファイル末尾: 移動できないので前の位置に戻る
+        // End of file: cannot move, revert to previous position
         line = prevLine;
         col = prevCol;
         break;
@@ -175,7 +175,7 @@ export function motionW(
     }
   }
 
-  // colをバッファ範囲内にクランプ
+  // Clamp col within buffer range
   const clampedLine = clampLine(line, buffer);
   const lineLen = buffer.getLineLength(clampedLine);
   const newCursor = {
@@ -553,11 +553,11 @@ export function motionMatchBracket(
       c = 0;
     }
   } else {
-    // Search backward（閉じ括弧 → 開き括弧を探す）
+    // Search backward (closing bracket -> find opening bracket)
     let l = cursor.line;
     let c = cursor.col - 1;
 
-    // カーソル位置のcolが0の場合、前の行から検索開始
+    // If col at cursor position is 0, start searching from the previous line
     if (c < 0) {
       l--;
       c = l >= 0 ? buffer.getLineLength(l) - 1 : -1;

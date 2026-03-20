@@ -1,8 +1,8 @@
 /**
  * key-utils.ts
  *
- * キーストローク処理に関するユーティリティ関数。
- * カウント判定、オペレーター判定、モード遷移のヘルパーなど。
+ * Utility functions for keystroke processing.
+ * Includes count detection, operator detection, mode transition helpers, etc.
  */
 
 import type {
@@ -15,9 +15,9 @@ import type {
 import type { KeystrokeResult } from "./vim-state";
 
 /**
- * キーがカウント入力かどうかを判定する。
- * - 1-9 は常にカウント
- * - 0 はカウントが既に入力されている場合のみカウント（それ以外は行頭移動）
+ * Determine whether a key is a count input.
+ * - 1-9 are always count keys
+ * - 0 is a count key only when a count has already been entered (otherwise it moves to the beginning of the line)
  */
 export function isCountKey(key: string, ctx: VimContext): boolean {
   if (key >= "1" && key <= "9") return true;
@@ -26,7 +26,7 @@ export function isCountKey(key: string, ctx: VimContext): boolean {
 }
 
 /**
- * キーがオペレーターかどうかを判定する。
+ * Determine whether a key is an operator.
  * d: delete, y: yank, c: change
  */
 export function isOperator(key: string): key is Operator {
@@ -34,10 +34,10 @@ export function isOperator(key: string): key is Operator {
 }
 
 /**
- * キーが文字待ちコマンドかどうかを判定する。
- * f: 前方文字検索, F: 後方文字検索
- * t: 前方文字検索（手前）, T: 後方文字検索（手前）
- * r: 1文字置換
+ * Determine whether a key is a character-pending command.
+ * f: forward character search, F: backward character search
+ * t: forward character search (stop before), T: backward character search (stop after)
+ * r: single character replace
  */
 export function isCharCommand(key: string): key is CharCommand {
   return (
@@ -46,26 +46,26 @@ export function isCharCommand(key: string): key is CharCommand {
 }
 
 /**
- * カウント値を取得する。0の場合は1として扱う。
- * Vimではカウント未指定は暗黙的に1回。
+ * Get the effective count value. Treats 0 as 1.
+ * In Vim, an unspecified count implicitly means 1.
  */
 export function getEffectiveCount(ctx: VimContext): number {
   return Math.max(1, ctx.count);
 }
 
 /**
- * カウントが明示的に指定されたかどうか。
- * gg と G の挙動を分けるために必要。
- * - gg: カウントなし → ファイル先頭、カウントあり → 指定行へ
- * - G: カウントなし → ファイル末尾、カウントあり → 指定行へ
+ * Whether a count was explicitly specified.
+ * Needed to differentiate behavior between gg and G.
+ * - gg: no count -> beginning of file, with count -> go to specified line
+ * - G: no count -> end of file, with count -> go to specified line
  */
 export function isCountExplicit(ctx: VimContext): boolean {
   return ctx.count > 0;
 }
 
 /**
- * モード遷移用のヘルパー。
- * モードに応じたステータスメッセージも設定する。
+ * Helper for mode transitions.
+ * Also sets the status message corresponding to the mode.
  */
 export function modeChange(
   ctx: VimContext,
@@ -87,7 +87,7 @@ export function modeChange(
 }
 
 /**
- * モードに対応するステータスメッセージを取得する。
+ * Get the status message corresponding to a mode.
  */
 export function getModeStatusMessage(mode: VimMode): string {
   switch (mode) {
@@ -105,8 +105,8 @@ export function getModeStatusMessage(mode: VimMode): string {
 }
 
 /**
- * カウントを蓄積する。
- * 例: count=3 のとき key="2" → count=32
+ * Accumulate a count digit.
+ * Example: when count=3 and key="2" -> count=32
  */
 export function accumulateCount(
   key: string,
@@ -120,7 +120,7 @@ export function accumulateCount(
 }
 
 /**
- * コンテキストをリセットする（コマンドが完了または無効になったとき）。
+ * Reset the context (when a command is completed or becomes invalid).
  */
 export function resetContext(ctx: VimContext): VimContext {
   return {

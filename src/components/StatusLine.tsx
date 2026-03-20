@@ -1,13 +1,13 @@
 /**
  * StatusLine.tsx
  *
- * エディタ下部のステータスラインコンポーネント。
- * Vimのステータスバーを模した表示:
+ * Status line component at the bottom of the editor.
+ * Mimics the Vim status bar display:
  *
- * [モード表示]                    [カーソル位置]
+ * [Mode display]                  [Cursor position]
  * -- INSERT --                   12:34
  *
- * コマンドラインモード時はコマンド入力を表示:
+ * In command-line mode, displays command input:
  * :w
  * /search_pattern
  */
@@ -15,20 +15,20 @@
 import type { CursorPosition, VimMode } from "../types";
 
 export interface StatusLineProps {
-  /** 現在のVimモード */
+  /** Current Vim mode */
   mode: VimMode;
-  /** カーソル位置（0-based） */
+  /** Cursor position (0-based) */
   cursor: CursorPosition;
-  /** ステータスメッセージ（モード表示やエラーメッセージ） */
+  /** Status message (mode display or error messages) */
   statusMessage: string;
-  /** コマンドライン入力（: や / の後の入力） */
+  /** Command line input (input after : or /) */
   commandLine: string;
-  /** 全体の行数 */
+  /** Total number of lines */
   totalLines: number;
 }
 
 /**
- * ステータスラインの描画。
+ * Renders the status line.
  */
 export function StatusLine({
   mode,
@@ -37,7 +37,7 @@ export function StatusLine({
   commandLine,
   totalLines,
 }: StatusLineProps) {
-  // コマンドラインモード時はコマンド入力を表示
+  // Display command input when in command-line mode
   if (mode === "command-line" && commandLine) {
     return (
       <div className="sv-statusline">
@@ -55,7 +55,7 @@ export function StatusLine({
   return (
     <div className="sv-statusline">
       <span className="sv-statusline-left">
-        {/* モード表示 */}
+        {/* Mode display */}
         {statusMessage && (
           <span className={`sv-mode-indicator sv-mode-${mode}`}>
             {statusMessage}
@@ -70,8 +70,8 @@ export function StatusLine({
 }
 
 /**
- * カーソル位置を "行:列" 形式でフォーマット（1-based）。
- * ファイル内の位置パーセンテージも表示。
+ * Format cursor position in "line:column" format (1-based).
+ * Also displays the position percentage within the file.
  */
 function formatCursorPosition(
   cursor: CursorPosition,

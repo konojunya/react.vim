@@ -1,8 +1,8 @@
 /**
  * visual-mode.test.ts
  *
- * ビジュアルモード（文字単位・行単位）の統合テスト。
- * 選択範囲の拡大/縮小、オペレーター実行、モード切替を検証する。
+ * Integration tests for visual mode (character-wise and line-wise).
+ * Verifies selection expansion/contraction, operator execution, and mode switching.
  */
 
 import { describe, it, expect } from "vitest";
@@ -11,10 +11,10 @@ import { processKeystroke, createInitialContext } from "./vim-state";
 import { TextBuffer } from "./buffer";
 
 // =====================
-// ヘルパー関数
+// Helper functions
 // =====================
 
-/** ビジュアルモードのテスト用VimContextを生成する */
+/** Create a VimContext in visual mode for testing */
 function createVisualContext(
   cursor: CursorPosition,
   anchor: CursorPosition,
@@ -29,7 +29,7 @@ function createVisualContext(
   };
 }
 
-/** ビジュアルラインモードのテスト用VimContextを生成する */
+/** Create a VimContext in visual-line mode for testing */
 function createVisualLineContext(
   cursor: CursorPosition,
   anchor: CursorPosition,
@@ -44,7 +44,7 @@ function createVisualLineContext(
   };
 }
 
-/** 複数キーを順番に処理し、最終的な状態を返す */
+/** Process multiple keys in sequence and return the final state */
 function pressKeys(
   keys: string[],
   ctx: VimContext,
@@ -61,15 +61,15 @@ function pressKeys(
 }
 
 // =====================
-// テスト本体
+// Tests
 // =====================
 
-describe("ビジュアルモード", () => {
+describe("Visual mode", () => {
   // ---------------------------------------------------
-  // ビジュアルモードの開始と移動
+  // Starting visual mode and cursor movement
   // ---------------------------------------------------
-  describe("ビジュアルモードの開始とカーソル移動", () => {
-    it("v でビジュアルモードに入り、アンカーが設定される", () => {
+  describe("Starting visual mode and cursor movement", () => {
+    it("enters visual mode with v and sets the anchor", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createInitialContext({ line: 0, col: 3 });
       const { ctx: result } = pressKeys(["v"], ctx, buffer);
@@ -77,7 +77,7 @@ describe("ビジュアルモード", () => {
       expect(result.visualAnchor).toEqual({ line: 0, col: 3 });
     });
 
-    it("l で選択範囲を右に拡大する", () => {
+    it("expands selection to the right with l", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 3 },
@@ -88,7 +88,7 @@ describe("ビジュアルモード", () => {
       expect(result.visualAnchor).toEqual({ line: 0, col: 3 });
     });
 
-    it("j で選択範囲を下の行に拡大する", () => {
+    it("expands selection to the line below with j", () => {
       const buffer = new TextBuffer("hello\nworld\nfoo");
       const ctx = createVisualContext(
         { line: 0, col: 2 },
@@ -99,7 +99,7 @@ describe("ビジュアルモード", () => {
       expect(result.visualAnchor).toEqual({ line: 0, col: 2 });
     });
 
-    it("h でカーソルを左に移動し選択範囲を縮小する", () => {
+    it("moves cursor left and shrinks selection with h", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 5 },
@@ -109,7 +109,7 @@ describe("ビジュアルモード", () => {
       expect(result.cursor.col).toBe(4);
     });
 
-    it("gg でファイル先頭に移動する", () => {
+    it("moves to the beginning of the file with gg", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createVisualContext(
         { line: 2, col: 0 },
@@ -122,10 +122,10 @@ describe("ビジュアルモード", () => {
   });
 
   // ---------------------------------------------------
-  // ビジュアルモードでのオペレーター実行
+  // Operators in visual mode
   // ---------------------------------------------------
-  describe("ビジュアルモードでのオペレーター", () => {
-    it("d で選択範囲を削除する", () => {
+  describe("Operators in visual mode", () => {
+    it("deletes the selection with d", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 5 },
@@ -137,7 +137,7 @@ describe("ビジュアルモード", () => {
       expect(result.visualAnchor).toBeNull();
     });
 
-    it("x で選択範囲を削除する（d と同じ動作）", () => {
+    it("deletes the selection with x (same behavior as d)", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 5 },
@@ -148,7 +148,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("normal");
     });
 
-    it("y で選択範囲をヤンクする（バッファは変更しない）", () => {
+    it("yanks the selection with y (buffer unchanged)", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 4 },
@@ -160,7 +160,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("normal");
     });
 
-    it("c で選択範囲を削除してインサートモードに入る", () => {
+    it("deletes the selection and enters insert mode with c", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 4 },
@@ -171,30 +171,30 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("insert");
     });
 
-    it("複数行選択を d で削除する", () => {
+    it("deletes a multi-line selection with d", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createVisualContext(
         { line: 1, col: 2 },
         { line: 0, col: 3 },
       );
       const { ctx: result } = pressKeys(["d"], ctx, buffer);
-      // line1の0-2 + line2の3以降 が削除される
+      // line1 cols 0-2 + line2 cols 3+ are deleted
       expect(result.mode).toBe("normal");
     });
   });
 
   // ---------------------------------------------------
-  // ビジュアルラインモード
+  // Visual-line mode
   // ---------------------------------------------------
-  describe("ビジュアルラインモード", () => {
-    it("V でビジュアルラインモードに入る", () => {
+  describe("Visual-line mode", () => {
+    it("enters visual-line mode with V", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createInitialContext({ line: 0, col: 0 });
       const { ctx: result } = pressKeys(["V"], ctx, buffer);
       expect(result.mode).toBe("visual-line");
     });
 
-    it("ビジュアルラインモードで d すると行全体が削除される", () => {
+    it("deletes entire lines with d in visual-line mode", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createVisualLineContext(
         { line: 1, col: 0 },
@@ -206,7 +206,7 @@ describe("ビジュアルモード", () => {
       expect(result.register).toBe("line1\nline2\n");
     });
 
-    it("ビジュアルラインモードで y すると行全体がヤンクされる", () => {
+    it("yanks entire lines with y in visual-line mode", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createVisualLineContext(
         { line: 1, col: 0 },
@@ -218,7 +218,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("normal");
     });
 
-    it("ビジュアルラインモードで j を押すと選択範囲が下に拡大する", () => {
+    it("expands selection downward when pressing j in visual-line mode", () => {
       const buffer = new TextBuffer("line1\nline2\nline3");
       const ctx = createVisualLineContext(
         { line: 0, col: 0 },
@@ -231,10 +231,10 @@ describe("ビジュアルモード", () => {
   });
 
   // ---------------------------------------------------
-  // Escape（ビジュアルモード終了）
+  // Escape (exit visual mode)
   // ---------------------------------------------------
-  describe("Escape（ビジュアルモード終了）", () => {
-    it("Escape でノーマルモードに戻る", () => {
+  describe("Escape (exit visual mode)", () => {
+    it("returns to normal mode with Escape", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 5 },
@@ -245,7 +245,7 @@ describe("ビジュアルモード", () => {
       expect(result.visualAnchor).toBeNull();
     });
 
-    it("ビジュアルラインモードで Escape を押すとノーマルモードに戻る", () => {
+    it("returns to normal mode when pressing Escape in visual-line mode", () => {
       const buffer = new TextBuffer("line1\nline2");
       const ctx = createVisualLineContext(
         { line: 1, col: 0 },
@@ -257,10 +257,10 @@ describe("ビジュアルモード", () => {
   });
 
   // ---------------------------------------------------
-  // モード切替（v / V の再押下）
+  // Mode switching (re-pressing v / V)
   // ---------------------------------------------------
-  describe("モード切替", () => {
-    it("ビジュアルモードで v を再度押すとノーマルモードに戻る", () => {
+  describe("Mode switching", () => {
+    it("returns to normal mode when pressing v again in visual mode", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createVisualContext(
         { line: 0, col: 3 },
@@ -270,7 +270,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("normal");
     });
 
-    it("ビジュアルモードで V を押すとビジュアルラインモードに切り替わる", () => {
+    it("switches to visual-line mode when pressing V in visual mode", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createVisualContext(
         { line: 0, col: 3 },
@@ -280,7 +280,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("visual-line");
     });
 
-    it("ビジュアルラインモードで V を再度押すとノーマルモードに戻る", () => {
+    it("returns to normal mode when pressing V again in visual-line mode", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createVisualLineContext(
         { line: 0, col: 0 },
@@ -290,7 +290,7 @@ describe("ビジュアルモード", () => {
       expect(result.mode).toBe("normal");
     });
 
-    it("ビジュアルラインモードで v を押すとビジュアルモードに切り替わる", () => {
+    it("switches to visual mode when pressing v in visual-line mode", () => {
       const buffer = new TextBuffer("hello");
       const ctx = createVisualLineContext(
         { line: 0, col: 0 },
@@ -302,10 +302,10 @@ describe("ビジュアルモード", () => {
   });
 
   // ---------------------------------------------------
-  // カウントプレフィックス
+  // Count prefix
   // ---------------------------------------------------
-  describe("カウントプレフィックス", () => {
-    it("3l でカーソルを3つ右に移動する", () => {
+  describe("Count prefix", () => {
+    it("moves cursor 3 positions right with 3l", () => {
       const buffer = new TextBuffer("hello world");
       const ctx = createVisualContext(
         { line: 0, col: 0 },
@@ -317,10 +317,10 @@ describe("ビジュアルモード", () => {
   });
 
   // ---------------------------------------------------
-  // visualAnchor が null のエッジケース
+  // Edge case: visualAnchor is null
   // ---------------------------------------------------
-  describe("エッジケース", () => {
-    it("visualAnchor が null のときオペレーターは何もしない", () => {
+  describe("Edge cases", () => {
+    it("operator does nothing when visualAnchor is null", () => {
       const buffer = new TextBuffer("hello");
       const ctx: VimContext = {
         ...createInitialContext({ line: 0, col: 0 }),

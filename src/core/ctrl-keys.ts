@@ -1,10 +1,10 @@
 /**
  * ctrl-keys.ts
  *
- * Ctrlキーとの組み合わせコマンドの処理。
- * - Ctrl-R: リドゥ
- * - Ctrl-U: 半ページ上スクロール
- * - Ctrl-D: 半ページ下スクロール
+ * Processing of Ctrl key combination commands.
+ * - Ctrl-R: Redo
+ * - Ctrl-U: Scroll half page up
+ * - Ctrl-D: Scroll half page down
  */
 
 import type { VimContext, VimAction } from "../types";
@@ -12,8 +12,8 @@ import type { TextBuffer } from "./buffer";
 import type { KeystrokeResult } from "./vim-state";
 
 /**
- * Ctrlキーコンビネーションを処理する。
- * ノーマルモード・ビジュアルモードの両方から呼ばれる共通処理。
+ * Handle Ctrl key combinations.
+ * Common processing called from both normal mode and visual mode.
  */
 export function handleCtrlKey(
   key: string,
@@ -23,7 +23,7 @@ export function handleCtrlKey(
 ): KeystrokeResult {
   switch (key) {
     case "r":
-      // readOnly: redo をブロック
+      // readOnly: block redo
       if (readOnly) return { newCtx: ctx, actions: [] };
       return handleCtrlR(ctx, buffer);
     case "u":
@@ -36,8 +36,8 @@ export function handleCtrlKey(
 }
 
 /**
- * Ctrl-R: リドゥ
- * 直前のundoを取り消す。
+ * Ctrl-R: Redo
+ * Reverses the last undo.
  */
 function handleCtrlR(
   ctx: VimContext,
@@ -64,8 +64,8 @@ function handleCtrlR(
 }
 
 /**
- * Ctrl-U: 半ページ上スクロール
- * 実際のスクロール量はコンポーネント側で計算する。
+ * Ctrl-U: Scroll half page up
+ * The actual scroll amount is calculated on the component side.
  */
 function handleCtrlU(ctx: VimContext): KeystrokeResult {
   return {
@@ -75,7 +75,7 @@ function handleCtrlU(ctx: VimContext): KeystrokeResult {
 }
 
 /**
- * Ctrl-D: 半ページ下スクロール
+ * Ctrl-D: Scroll half page down
  */
 function handleCtrlD(ctx: VimContext): KeystrokeResult {
   return {

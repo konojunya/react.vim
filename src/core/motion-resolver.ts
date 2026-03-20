@@ -1,9 +1,9 @@
 /**
  * motion-resolver.ts
  *
- * キー文字列からモーション関数へのマッピング。
- * motions.ts の個別モーション関数を統合し、
- * キー1つから適切なモーションを解決する。
+ * Mapping from key strings to motion functions.
+ * Integrates individual motion functions from motions.ts
+ * and resolves the appropriate motion from a single key.
  */
 
 import type { CursorPosition } from "../types";
@@ -25,14 +25,14 @@ import {
 } from "./motions";
 
 /**
- * キー文字列を解決してモーション結果を返す。
+ * Resolve a key string and return the motion result.
  *
- * @param key - KeyboardEvent.key の値
- * @param cursor - 現在のカーソル位置
- * @param buffer - テキストバッファ
- * @param count - 実行回数
- * @param countExplicit - カウントが明示的に指定されたか
- * @returns モーション結果、またはマッチしなければnull
+ * @param key - The value of KeyboardEvent.key
+ * @param cursor - The current cursor position
+ * @param buffer - The text buffer
+ * @param count - The repeat count
+ * @param countExplicit - Whether the count was explicitly specified
+ * @returns The motion result, or null if no motion matches
  */
 export function resolveMotion(
   key: string,
@@ -42,7 +42,7 @@ export function resolveMotion(
   countExplicit: boolean,
 ): MotionResult | null {
   switch (key) {
-    // --- 基本移動 ---
+    // --- Basic movement ---
     case "h":
     case "ArrowLeft":
       return motionH(cursor, buffer, count);
@@ -59,7 +59,7 @@ export function resolveMotion(
     case "ArrowRight":
       return motionL(cursor, buffer, count);
 
-    // --- ワード移動 ---
+    // --- Word movement ---
     case "w":
       return motionW(cursor, buffer, count);
 
@@ -69,7 +69,7 @@ export function resolveMotion(
     case "b":
       return motionB(cursor, buffer, count);
 
-    // --- 行内移動 ---
+    // --- Intra-line movement ---
     case "0":
       return motionZero(cursor, buffer, count);
 
@@ -79,12 +79,12 @@ export function resolveMotion(
     case "$":
       return motionDollar(cursor, buffer, count);
 
-    // --- ファイル内移動 ---
+    // --- File-level movement ---
     case "G":
-      // G: カウント指定あり → 指定行、なし → ファイル末尾
+      // G: with count -> go to specified line, without count -> go to end of file
       return motionG(cursor, buffer, countExplicit ? count : null);
 
-    // --- ブラケットマッチ ---
+    // --- Bracket matching ---
     case "%":
       return motionMatchBracket(cursor, buffer, count);
 
