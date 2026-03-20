@@ -329,7 +329,6 @@ export default function App() {
   const [lang, setLang] = useState("go");
   const [indentStyle, setIndentStyle] = useState<"tab" | "space">("tab");
   const [indentWidth, setIndentWidth] = useState(4);
-  const [editorKey, setEditorKey] = useState(0);
   const [code, setCode] = useState(initialCode);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [cssVars, setCssVars] = useState<Record<string, string>>({});
@@ -492,7 +491,6 @@ export default function App() {
               const isTab = tabLanguages.has(newLang);
               setIndentStyle(isTab ? "tab" : "space");
               setIndentWidth(isTab ? 4 : 2);
-              setEditorKey((k) => k + 1);
             }} style={selectStyle}>
               {langs.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
@@ -503,7 +501,6 @@ export default function App() {
               const style = e.target.value as "tab" | "space";
               setIndentStyle(style);
               if (style === "tab") setIndentWidth(4);
-              setEditorKey((k) => k + 1);
             }} style={selectStyle}>
               <option value="tab">Tab</option>
               <option value="space">Space</option>
@@ -514,7 +511,6 @@ export default function App() {
               Width
               <select value={indentWidth} onChange={(e) => {
                 setIndentWidth(Number(e.target.value));
-                setEditorKey((k) => k + 1);
               }} style={selectStyle}>
                 {[2, 4, 8].map((w) => <option key={w} value={w}>{w}</option>)}
               </select>
@@ -569,7 +565,7 @@ export default function App() {
       {/* Editor */}
       <div style={cssVars as CSSProperties}>
         <ShikiVim
-          key={editorKey}
+          key={`${indentStyle}-${indentWidth}`}
           content={code}
           highlighter={highlighter}
           lang={lang}
