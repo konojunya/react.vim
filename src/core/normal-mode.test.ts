@@ -1197,6 +1197,68 @@ describe("Normal mode", () => {
   // ---------------------------------------------------
   // Macro recording & playback
   // ---------------------------------------------------
+  // ---------------------------------------------------
+  // Marks (m, `, ')
+  // ---------------------------------------------------
+  describe("Marks (m, `, ')", () => {
+    it("ma sets mark a at current position, `a jumps to it", () => {
+      const buffer = new TextBuffer("line1\nline2\nline3\nline4\nline5");
+      const ctx = createTestContext({ line: 1, col: 3 });
+      // Set mark a
+      const { ctx: afterMark } = pressKeys(["m", "a"], ctx, buffer);
+      expect(afterMark.marks.a).toEqual({ line: 1, col: 3 });
+      // Move away
+      const { ctx: moved } = pressKeys(["G"], afterMark, buffer);
+      expect(moved.cursor.line).toBe(4);
+      // Jump back to mark a
+      const { ctx: jumped } = pressKeys(["`", "a"], moved, buffer);
+      expect(jumped.cursor).toEqual({ line: 1, col: 3 });
+    });
+
+    it("'a also jumps to mark a", () => {
+      const buffer = new TextBuffer("line1\nline2\nline3");
+      const ctx = createTestContext({ line: 2, col: 0 });
+      const { ctx: afterMark } = pressKeys(["m", "b"], ctx, buffer);
+      const { ctx: moved } = pressKeys(["g", "g"], afterMark, buffer);
+      const { ctx: jumped } = pressKeys(["'", "b"], moved, buffer);
+      expect(jumped.cursor.line).toBe(2);
+    });
+
+    it("multiple marks work independently", () => {
+      const buffer = new TextBuffer("aaa\nbbb\nccc\nddd");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: a1 } = pressKeys(["m", "a"], ctx, buffer);
+      const { ctx: a2 } = pressKeys(["j", "j", "m", "b"], a1, buffer);
+      expect(a2.marks.a).toEqual({ line: 0, col: 0 });
+      expect(a2.marks.b).toEqual({ line: 2, col: 0 });
+      // Jump to a
+      const { ctx: ja } = pressKeys(["`", "a"], a2, buffer);
+      expect(ja.cursor.line).toBe(0);
+      // Jump to b
+      const { ctx: jb } = pressKeys(["`", "b"], ja, buffer);
+      expect(jb.cursor.line).toBe(2);
+    });
+
+    it("shows error when mark is not set", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["`", "z"], ctx, buffer);
+      expect(result.statusMessage).toBe("Mark 'z' not set");
+    });
+
+    it("clamps to buffer bounds if lines were deleted", () => {
+      const buffer = new TextBuffer("line1\nline2\nline3");
+      const ctx = createTestContext({ line: 2, col: 0 });
+      const { ctx: afterMark } = pressKeys(["m", "a"], ctx, buffer);
+      // Delete last line
+      const { ctx: afterDd } = pressKeys(["d", "d"], afterMark, buffer);
+      expect(buffer.getLineCount()).toBe(2);
+      // Jump to mark a (line 2 no longer exists, clamp to line 1)
+      const { ctx: jumped } = pressKeys(["`", "a"], afterDd, buffer);
+      expect(jumped.cursor.line).toBe(1);
+    });
+  });
+
   describe("Macro recording & playback", () => {
     it("qa starts recording, q stops, @a replays", () => {
       const buffer = new TextBuffer("aaa\nbbb\nccc");

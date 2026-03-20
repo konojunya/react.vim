@@ -30,7 +30,9 @@ export type CommandPhase =
   | "text-object-pending"
   | "register-pending"
   | "macro-register-pending"
-  | "macro-execute-pending";
+  | "macro-execute-pending"
+  | "mark-pending"
+  | "jump-mark-pending";
 
 /**
  * Vim operators
@@ -81,6 +83,8 @@ export interface VimContext {
     col: number;
     cursorAtInsertStart: CursorPosition;
   } | null;
+  /** Marks (a-z) -> cursor positions */
+  marks: Record<string, CursorPosition>;
   /** Register currently being recorded into (null = not recording) */
   macroRecording: string | null;
   /** Recorded macro key sequences */

@@ -95,6 +95,16 @@ export function processNormalMode(
   ctrlKey: boolean,
   readOnly: boolean = false,
 ): KeystrokeResult {
+  // --- Mark pending (m + a-z) ---
+  if (ctx.phase === "mark-pending") {
+    return handleMarkPending(key, ctx);
+  }
+
+  // --- Jump to mark pending (` + a-z) ---
+  if (ctx.phase === "jump-mark-pending") {
+    return handleJumpMarkPending(key, ctx, buffer);
+  }
+
   // --- Register pending ("x) ---
   if (ctx.phase === "register-pending") {
     return handleRegisterPending(key, ctx);
@@ -253,6 +263,30 @@ export function processNormalMode(
   // --- J: join lines ---
   if (key === "J") {
     return handleJoinLines(ctx, buffer);
+  }
+
+  // --- m: set mark ---
+  if (key === "m") {
+    return {
+      newCtx: { ...ctx, phase: "mark-pending" },
+      actions: [],
+    };
+  }
+
+  // --- `: jump to mark ---
+  if (key === "`") {
+    return {
+      newCtx: { ...ctx, phase: "jump-mark-pending" },
+      actions: [],
+    };
+  }
+
+  // --- ': jump to mark (line-wise, first non-blank) ---
+  if (key === "'") {
+    return {
+      newCtx: { ...ctx, phase: "jump-mark-pending" },
+      actions: [],
+    };
   }
 
   // --- Unmatched key -> reset ---
@@ -1135,6 +1169,68 @@ function handleCharSearchRepeat(
 /**
  * J: Join the current line with the next line
  */
+/**
+ * m{a-z}: Set a mark at the current cursor position.
+ */
+function handleMarkPending(
+  key: string,
+  ctx: VimContext,
+): KeystrokeResult {
+  if (/^[a-z]$/.test(key)) {
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        marks: {
+          ...ctx.marks,
+          [key]: { ...ctx.cursor },
+        },
+      },
+      actions: [],
+    };
+  }
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
+/**
+ * `{a-z} or '{a-z}: Jump to a mark.
+ * ` jumps to exact position, ' jumps to the line's first non-blank character.
+ */
+function handleJumpMarkPending(
+  key: string,
+  ctx: VimContext,
+  buffer: TextBuffer,
+): KeystrokeResult {
+  if (/^[a-z]$/.test(key) && ctx.marks[key]) {
+    const mark = ctx.marks[key];
+    // Clamp to buffer bounds
+    const line = Math.min(mark.line, buffer.getLineCount() - 1);
+    const maxCol = Math.max(0, buffer.getLineLength(line) - 1);
+    const newCursor = { line, col: Math.min(mark.col, maxCol) };
+
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        cursor: newCursor,
+      },
+      actions: [{ type: "cursor-move", position: newCursor }],
+    };
+  }
+
+  if (/^[a-z]$/.test(key) && !ctx.marks[key]) {
+    return {
+      newCtx: {
+        ...resetContext(ctx),
+        statusMessage: `Mark '${key}' not set`,
+      },
+      actions: [
+        { type: "status-message", message: `Mark '${key}' not set` },
+      ],
+    };
+  }
+
+  return { newCtx: resetContext(ctx), actions: [] };
+}
+
 function handleJoinLines(
   ctx: VimContext,
   buffer: TextBuffer,

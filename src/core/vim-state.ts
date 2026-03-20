@@ -58,6 +58,7 @@ export function createInitialContext(
     textObjectModifier: null,
     lastChange: [],
     pendingChange: [],
+    marks: {},
     macroRecording: null,
     macros: {},
     lastMacro: null,
