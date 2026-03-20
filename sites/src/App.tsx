@@ -307,14 +307,14 @@ function App() {
       </nav>
 
       {/* ---- Hero ---- */}
-      <section style={hero}>
+      <section className="hero-section" style={hero}>
         <img
           src="/icon.svg"
           alt="shiki-vim mascot"
           style={{ width: 140, height: "auto", marginBottom: 32, filter: "drop-shadow(0 8px 32px rgba(167,139,250,0.35))", animation: "float 3s ease-in-out infinite" }}
         />
 
-        <h1 style={heroTitle}>
+        <h1 className="hero-title" style={heroTitle}>
           <VimTyper />
         </h1>
 
@@ -324,14 +324,12 @@ function App() {
           Shiki highlighting, and zero configuration.
         </p>
 
-        <div style={{ display: "inline-flex", flexDirection: "column", gap: 12, alignItems: "stretch", marginTop: 28 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 28 }}>
           <a href="#playground" style={{ ...ctaBtn, textAlign: "center" }}>
             Try it live
           </a>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "center" }}>
-            <code style={installBadge}>npm i shiki-vim</code>
-            <Pill>v{__SHIKI_VIM_VERSION__}</Pill>
-          </div>
+          <code style={installBadge}>npm i shiki-vim</code>
+          <Pill>v{__SHIKI_VIM_VERSION__}</Pill>
         </div>
       </section>
 
@@ -804,7 +802,7 @@ function Dot() {
 // ---------------------------------------------------------------------------
 
 const page: React.CSSProperties = {
-  minHeight: "100vh",
+  minHeight: "100dvh",
   color: C.fg,
   fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
   background: "transparent",
@@ -812,7 +810,7 @@ const page: React.CSSProperties = {
 
 const center: React.CSSProperties = {
   display: "flex", flexDirection: "column", alignItems: "center",
-  justifyContent: "center", minHeight: "100vh", background: C.bg, gap: 16,
+  justifyContent: "center", minHeight: "100dvh", background: C.bg, gap: 16,
 };
 
 const spinner: React.CSSProperties = {
@@ -845,7 +843,7 @@ const hero: React.CSSProperties = {
   maxWidth: 700,
   margin: "0 auto",
   padding: "0 24px",
-  minHeight: "100vh",
+  minHeight: "100dvh",
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
