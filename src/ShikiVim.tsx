@@ -285,7 +285,7 @@ interface SelectionInfo {
  * visual:      Character-wise selection (from anchor to cursor)
  * visual-line: Line-wise selection (from anchor line to cursor line)
  */
-function computeSelectionInfo(
+export function computeSelectionInfo(
   mode: string,
   anchor: CursorPosition | null,
   cursor: CursorPosition,
