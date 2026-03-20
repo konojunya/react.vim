@@ -25,7 +25,7 @@
  * ```
  */
 
-import { useRef, useCallback, useMemo } from "react";
+import { useRef, useCallback, useMemo, useEffect } from "react";
 import type { ShikiVimProps, CursorPosition } from "./types";
 import { useShikiTokens } from "./hooks/useShikiTokens";
 import { useVimEngine } from "./hooks/useVimEngine";
@@ -92,6 +92,24 @@ export default function ShikiVim({
       totalLines,
     );
   }, [engine.mode, engine.visualAnchor, engine.cursor, totalLines]);
+
+  // --- Scroll to keep cursor visible ---
+  useEffect(() => {
+    const area = codeAreaRef.current;
+    if (!area) return;
+    const lineHeight = parseFloat(getComputedStyle(area).lineHeight);
+    if (!lineHeight) return;
+
+    const padding = 8; // sv-code-area padding-top
+    const cursorTop = engine.cursor.line * lineHeight + padding;
+    const cursorBottom = cursorTop + lineHeight;
+
+    if (cursorTop < area.scrollTop) {
+      area.scrollTop = cursorTop;
+    } else if (cursorBottom > area.scrollTop + area.clientHeight) {
+      area.scrollTop = cursorBottom - area.clientHeight;
+    }
+  }, [engine.cursor.line]);
 
   // --- Scroll handling (Ctrl-U/D) ---
   const handleKeyDown = useCallback(
