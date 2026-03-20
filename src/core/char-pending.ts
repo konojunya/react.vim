@@ -66,6 +66,7 @@ export function handleCharPending(
       motion.range,
       buffer,
       ctx.cursor,
+      { style: ctx.indentStyle, width: ctx.indentWidth },
     );
 
     return {

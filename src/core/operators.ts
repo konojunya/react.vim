@@ -40,7 +40,12 @@ export function executeOperatorOnRange(
   range: MotionRange,
   buffer: TextBuffer,
   cursor: CursorPosition,
+  indentOptions?: { style: "space" | "tab"; width: number },
 ): OperatorResult {
+  // Indent/dedent always operates linewise
+  if (operator === ">" || operator === "<") {
+    return executeIndentOperator(operator, range, buffer, cursor, indentOptions);
+  }
   if (range.linewise) {
     return executeLinewiseOperator(operator, range, buffer, cursor);
   }
@@ -212,7 +217,59 @@ function getTextInRange(
 }
 
 /**
- * Execute a line-wise operator (dd, yy, cc).
+ * Execute indent (>) or dedent (<) on a line range.
+ */
+function executeIndentOperator(
+  operator: ">" | "<",
+  range: MotionRange,
+  buffer: TextBuffer,
+  cursor: CursorPosition,
+  indentOptions?: { style: "space" | "tab"; width: number },
+): OperatorResult {
+  const startLine = Math.min(range.start.line, range.end.line);
+  const endLine = Math.max(range.start.line, range.end.line);
+  const lineCount = endLine - startLine + 1;
+
+  const style = indentOptions?.style ?? "space";
+  const width = indentOptions?.width ?? 2;
+  const indentUnit = style === "tab" ? "\t" : " ".repeat(width);
+
+  for (let l = startLine; l <= endLine; l++) {
+    const line = buffer.getLine(l);
+    if (operator === ">") {
+      buffer.setLine(l, indentUnit + line);
+    } else {
+      // Remove one level of leading indent
+      if (line.startsWith(indentUnit)) {
+        buffer.setLine(l, line.slice(indentUnit.length));
+      } else if (line.startsWith("\t")) {
+        buffer.setLine(l, line.slice(1));
+      } else {
+        // Remove as many leading spaces as possible (up to indent width)
+        const leadingSpaces = line.match(/^ */)?.[0].length ?? 0;
+        const toRemove = Math.min(leadingSpaces, indentUnit.length);
+        if (toRemove > 0) {
+          buffer.setLine(l, line.slice(toRemove));
+        }
+      }
+    }
+  }
+
+  const statusMessage = lineCount >= 2
+    ? `${lineCount} lines ${operator === ">" ? ">" : "<"}ed 1 time`
+    : "";
+
+  return {
+    actions: [{ type: "content-change", content: buffer.getContent() }],
+    newCursor: { line: startLine, col: 0 },
+    newMode: "normal",
+    yankedText: "",
+    statusMessage,
+  };
+}
+
+/**
+ * Execute a line-wise operator (dd, yy, cc, >>, <<).
  * Operates on multiple lines according to count.
  */
 export function executeLineOperator(

@@ -32,7 +32,7 @@ export type CommandPhase =
 /**
  * Vim operators
  */
-export type Operator = "d" | "y" | "c";
+export type Operator = "d" | "y" | "c" | ">" | "<";
 
 /**
  * Character-awaiting commands

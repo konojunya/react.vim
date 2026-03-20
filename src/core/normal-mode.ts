@@ -44,6 +44,10 @@ import {
 import { searchInBuffer } from "./search";
 import { resolveTextObject } from "./text-objects";
 
+function indentOpts(ctx: VimContext) {
+  return { style: ctx.indentStyle, width: ctx.indentWidth };
+}
+
 /**
  * Main handler for normal mode.
  * Receives a keystroke and returns state transitions and actions.
@@ -81,7 +85,7 @@ export function processNormalMode(
     const mutatingKeys = new Set([
       "i", "a", "o", "I", "A", "O",  // insert entry
       "x", "p", "P", "~",               // edit commands
-      "d", "c", "D", "C",              // mutating operators (y is allowed)
+      "d", "c", "D", "C", ">", "<",    // mutating operators (y is allowed)
       "J",                              // join lines
       "u",                              // undo
       "r",                              // replace char
@@ -236,7 +240,7 @@ function handleTextObjectPending(
   // If in operator-pending, execute the operator on the text object range
   if (ctx.operator) {
     buffer.saveUndoPoint(ctx.cursor);
-    const result = executeOperatorOnRange(ctx.operator, range, buffer, ctx.cursor);
+    const result = executeOperatorOnRange(ctx.operator, range, buffer, ctx.cursor, indentOpts(ctx));
 
     return {
       newCtx: {
@@ -279,6 +283,7 @@ function handleGPending(
         result.range,
         buffer,
         ctx.cursor,
+        indentOpts(ctx),
       );
       return {
         newCtx: {
@@ -382,6 +387,7 @@ function handleOperatorPending(
         charMotion.range,
         buffer,
         ctx.cursor,
+        indentOpts(ctx),
       );
       return {
         newCtx: {
@@ -423,6 +429,7 @@ function handleOperatorPending(
       motion.range,
       buffer,
       ctx.cursor,
+      indentOpts(ctx),
     );
 
     return {

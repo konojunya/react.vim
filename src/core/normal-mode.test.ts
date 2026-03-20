@@ -950,6 +950,88 @@ describe("Normal mode", () => {
   });
 
   // ---------------------------------------------------
+  // >> / << (indent / dedent)
+  // ---------------------------------------------------
+  describe(">> / << commands (indent / dedent)", () => {
+    it(">> indents the current line", () => {
+      const buffer = new TextBuffer("hello\nworld");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys([">", ">"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("  hello");
+      expect(buffer.getLine(1)).toBe("world");
+    });
+
+    it("<< dedents the current line", () => {
+      const buffer = new TextBuffer("  hello\nworld");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["<", "<"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("hello");
+    });
+
+    it("3>> indents 3 lines", () => {
+      const buffer = new TextBuffer("aaa\nbbb\nccc\nddd");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: result } = pressKeys(["3", ">", ">"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("  aaa");
+      expect(buffer.getLine(1)).toBe("  bbb");
+      expect(buffer.getLine(2)).toBe("  ccc");
+      expect(buffer.getLine(3)).toBe("ddd");
+      expect(result.statusMessage).toBe('3 lines >ed 1 time');
+    });
+
+    it("3<< dedents 3 lines", () => {
+      const buffer = new TextBuffer("  aaa\n  bbb\n  ccc\nddd");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["3", "<", "<"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("aaa");
+      expect(buffer.getLine(1)).toBe("bbb");
+      expect(buffer.getLine(2)).toBe("ccc");
+      expect(buffer.getLine(3)).toBe("ddd");
+    });
+
+    it(">j indents current line and next line", () => {
+      const buffer = new TextBuffer("aaa\nbbb\nccc");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys([">", "j"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("  aaa");
+      expect(buffer.getLine(1)).toBe("  bbb");
+      expect(buffer.getLine(2)).toBe("ccc");
+    });
+
+    it("<< does nothing when line has no indent", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["<", "<"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("hello");
+    });
+
+    it("<< removes partial indent (less than indent width)", () => {
+      const buffer = new TextBuffer(" hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      pressKeys(["<", "<"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("hello");
+    });
+
+    it(">> can be undone", () => {
+      const buffer = new TextBuffer("hello");
+      const ctx = createTestContext({ line: 0, col: 0 });
+      const { ctx: afterIndent } = pressKeys([">", ">"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("  hello");
+      pressKeys(["u"], afterIndent, buffer);
+      expect(buffer.getLine(0)).toBe("hello");
+    });
+
+    it(">G indents from cursor to end of file", () => {
+      const buffer = new TextBuffer("aaa\nbbb\nccc");
+      const ctx = createTestContext({ line: 1, col: 0 });
+      pressKeys([">", "Shift", "G"], ctx, buffer);
+      expect(buffer.getLine(0)).toBe("aaa");
+      expect(buffer.getLine(1)).toBe("  bbb");
+      expect(buffer.getLine(2)).toBe("  ccc");
+    });
+  });
+
+  // ---------------------------------------------------
   // . (dot repeat)
   // ---------------------------------------------------
   describe(". command (dot repeat)", () => {

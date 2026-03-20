@@ -263,7 +263,10 @@ function executeVisualOperator(
     inclusive: true,
   };
 
-  const result = executeOperatorOnRange(operator, range, buffer, ctx.cursor);
+  const result = executeOperatorOnRange(operator, range, buffer, ctx.cursor, {
+    style: ctx.indentStyle,
+    width: ctx.indentWidth,
+  });
 
   return {
     newCtx: {
