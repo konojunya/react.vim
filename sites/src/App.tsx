@@ -290,6 +290,19 @@ function App() {
 
   return (
     <div style={page}>
+      {/* ---- Deprecation Banner ---- */}
+      <div style={{ background: "#f59e0b", color: "#000", textAlign: "center", padding: "10px 16px", fontSize: 14, fontWeight: 600 }}>
+        ⚠️ This project has moved to{" "}
+        <a href="https://github.com/vimeejs/vimee" style={{ color: "#000", textDecoration: "underline" }}>
+          vimeejs/vimee
+        </a>
+        . Please use{" "}
+        <a href="https://www.npmjs.com/package/@vimee/shiki-editor" style={{ color: "#000", textDecoration: "underline" }}>
+          @vimee/shiki-editor
+        </a>
+        {" "}going forward.
+      </div>
+
       {/* ---- Nav ---- */}
       <nav style={nav}>
         <div />

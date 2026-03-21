@@ -1,3 +1,7 @@
+> **⚠️ This repository is no longer actively maintained.**
+> Development has moved to [vimeejs/vimee](https://github.com/vimeejs/vimee) — a headless vim engine monorepo with `@vimee/core`, `@vimee/react`, `@vimee/plugin-textarea`, and `@vimee/shiki-editor`.
+> Please use the new packages going forward.
+
 <img src="sites/public/ogp.png" alt="react.vim" width="100%" />
 
 <h1 align="center">react.vim</h1>
